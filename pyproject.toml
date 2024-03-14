@@ -1,0 +1,71 @@
+[tool.poetry]
+name = "cgyle"
+version = "1.0.0"
+description = "cgyle - container preload"
+license = "GPL-3.0-or-later"
+readme = "README.rst"
+# homepage = ""
+# documentation = ""
+# repository = ""
+
+authors = [
+   "Marcus Schäfer <marcus.schaefer@suse.com>",
+]
+maintainers = [
+   "Marcus Schäfer <marcus.schaefer@suse.com>",
+]
+
+packages = [
+   { include = "cgyle"},
+]
+
+include = [
+   { path = ".bumpversion.cfg", format = "sdist" },
+   { path = ".coverage*", format = "sdist" },
+   { path = ".virtualenv.requirements*.txt", format = "sdist" },
+   { path = "package", format = "sdist" },
+   { path = "test", format = "sdist" },
+   { path = "tox.ini", format = "sdist" },
+]
+
+classifiers = [
+   # classifier: http://pypi.python.org/pypi?%3Aaction=list_classifiers
+   "Development Status :: 5 - Production/Stable",
+   "Intended Audience :: Developers",
+   "Operating System :: POSIX :: Linux",
+   "Topic :: System :: Operating System",
+]
+
+[tool.poetry.urls]
+# "Bug Tracker" = ""
+
+[tool.poetry.dependencies]
+python = "^3.9"
+docopt-ng = ">=0.9.0"
+requests = ">=2.25.0"
+setuptools = ">=50"
+psutil = "*"
+
+[tool.poetry.scripts]
+cgyle = "cgyle.cgyle:main"
+
+[tool.poetry.group.test]
+[tool.poetry.group.test.dependencies]
+# python unit testing framework
+pytest = ">=6.2.0"
+pytest-cov = "*"
+pytest-xdist = "*"
+pytest-container = "*"
+# type checking
+mypy = ">=0.971"
+types-pkg_resources = "*"
+types-requests = "*"
+types-mock = "*"
+
+[tool.poetry.group.style]
+[tool.poetry.group.style.dependencies]
+flake8 = ">=4.0.0"
+
+[build-system]
+requires = ["poetry-core>=1.2.0"]
+build-backend = "poetry.core.masonry.api"

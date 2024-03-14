@@ -1,0 +1,20 @@
+# There is no manual page atm
+addFilter("no-manual-page-for-binary cgyle")
+
+# don't check for buildroot usage, Makefile uses the same var name
+addFilter("rpm-buildroot-usage .*")
+
+# don't check position-independent-executable
+addFilter("position-independent-executable-suggested .*")
+
+# don't check for file duplicates
+addFilter("files-duplicate .*")
+addFilter("cross-directory-hard-link .*")
+
+# cgyle master package can't be noarch if sub packages are arch specific
+addFilter("W: no-binary");
+
+# if we add a provides to the obsoleted another warning that the
+# same package is provided and obsoleted appears. This warning is
+# pointless or doesn't explain what it really wants
+addFilter("W: obsolete-not-provided");
