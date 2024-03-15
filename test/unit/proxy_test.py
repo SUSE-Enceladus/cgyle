@@ -1,4 +1,3 @@
-import logging
 from unittest.mock import (
     patch, Mock
 )
@@ -29,6 +28,7 @@ class TestDistributionProxy:
     @patch('cgyle.proxy.subprocess.Popen')
     def test_update_cache(self, mock_Popen):
         skopeo = Mock()
+        skopeo.communicate.return_value = ('output', 'error')
         mock_Popen.return_value = skopeo
         self.proxy.update_cache()
         mock_Popen.assert_called_once_with(
@@ -43,16 +43,6 @@ class TestDistributionProxy:
 
     def test_get_pid(self):
         assert self.proxy.get_pid() == '0'
-
-    def test_context_manager_exit(self):
-        skopeo = Mock()
-        skopeo.stderr.read.return_value = 'some-error'
-        with self._caplog.at_level(logging.ERROR):
-            with DistributionProxy('server', 'container') as proxy:
-                proxy.pid = 1234
-                proxy.skopeo = skopeo
-            skopeo.wait.assert_called_once_with()
-            assert 'some-error' in self._caplog.text
 
     @patch('os.kill')
     def test_context_manager_exit_keyboard_interrupt(self, mock_os_kill):

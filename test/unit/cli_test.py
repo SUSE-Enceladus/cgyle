@@ -73,13 +73,13 @@ class TestCli:
                 'localhost:5000', 'some-container'
             )
             proxy.update_cache.assert_called_once_with(
-                tls_verify=True, blocking=False
+                tls_verify=True
             )
 
-    @patch('psutil.pid_exists')
-    def test_get_running_requests(self, mock_pid_exists):
-        mock_pid_exists.return_value = False
-        self.cli.pids = {'1234': Mock()}
+    def test_get_running_requests(self):
+        thread = Mock()
+        thread.is_alive.return_value = False
+        self.cli.threads = {'1': thread}
         assert self.cli._get_running_requests() == 0
 
     @patch('cgyle.cli.Response')

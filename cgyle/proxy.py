@@ -29,7 +29,7 @@ class DistributionProxy:
     """
     def __init__(self, server: str, container: str) -> None:
         self.server = server
-        self.conftainer = container
+        self.container = container
         self.skopeo: Optional[subprocess.Popen[bytes]] = None
         self.pid = 0
 
@@ -37,8 +37,7 @@ class DistributionProxy:
         return self
 
     def update_cache(
-        self, tag: str = 'latest', tls_verify: bool = True,
-        blocking: bool = True
+        self, tag: str = 'latest', tls_verify: bool = True
     ) -> None:
         """
         Trigger a cache update of the container
@@ -46,7 +45,7 @@ class DistributionProxy:
         call_args = [
             'skopeo', 'copy',
             f'--src-tls-verify={format(tls_verify).lower()}',
-            f'docker://{self.server}/{self.conftainer}:{tag}',
+            f'docker://{self.server}/{self.container}:{tag}',
             f'oci-archive:/dev/null:{tag}'
         ]
         try:
@@ -56,12 +55,21 @@ class DistributionProxy:
                 stderr=subprocess.PIPE
             )
             self.pid = self.skopeo.pid
-            if blocking:
-                self.skopeo.communicate()
+            logging.info(
+                '[{}]: Processing Cache Update for: {} at {}'.format(
+                    self.pid, self.container, self.server
+                )
+            )
+            output, error = self.skopeo.communicate()
+            if error:
+                logging.error(f'[{self.pid}]: {error!r}')
+            if output:
+                logging.info(f'[{self.pid}]: {output!r}')
+            logging.info(f'[{self.pid}]: Cache Update done')
         except Exception as issue:
             raise CgyleCommandError(
                 'Failed to update cache for: {}: {}'.format(
-                    self.conftainer, issue
+                    self.container, issue
                 )
             )
 
@@ -72,10 +80,3 @@ class DistributionProxy:
         if exc_type == KeyboardInterrupt:
             if self.pid > 0:
                 os.kill(self.pid, 15)
-        elif self.skopeo:
-            # prevent becoming a zombie
-            self.skopeo.wait()
-            # print error information if present
-            error = self.skopeo.stderr.read()
-            if error:
-                logging.error(f'[{self.pid}]: {error}')

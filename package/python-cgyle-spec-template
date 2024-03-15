@@ -48,7 +48,6 @@ BuildRequires:  python%{python3_pkgversion}-installer
 BuildRequires:  python%{python3_pkgversion}-poetry-core >= 1.2.0
 BuildRequires:  python%{python3_pkgversion}-wheel
 BuildRequires:  python%{python3_pkgversion}-docopt >= 0.6.2
-BuildRequires:  python%{python3_pkgversion}-psutil
 BuildRequires:  python%{python3_pkgversion}-requests
 BuildRequires:  python%{python3_pkgversion}-setuptools
 
@@ -62,7 +61,6 @@ Summary:        cgyle - container preload
 Group:          %{pygroup}
 Requires:       python%{python3_pkgversion} >= 3.9
 Requires:       python%{python3_pkgversion}-docopt
-Requires:       python%{python3_pkgversion}-psutil
 Requires:       python%{python3_pkgversion}-requests
 Requires:       python%{python3_pkgversion}-setuptools
 Requires:       skopeo

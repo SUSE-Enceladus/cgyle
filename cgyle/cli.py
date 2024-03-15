@@ -43,13 +43,13 @@ options:
 """
 import re
 import time
+import threading
 import logging
 from typing import (
     List, Dict
 )
 from docopt import docopt
 from contextlib import ExitStack
-import psutil
 
 from cgyle.version import __version__
 from cgyle.proxy import DistributionProxy
@@ -76,7 +76,7 @@ class Cli:
 
         self.max_requests = 10
         self.wait_timeout = 3
-        self.pids: Dict[str, int] = {}
+        self.threads: Dict[str, threading.Thread] = {}
         self.tls = False if self.arguments['--no-tls-verify'] else True
         self.dryrun = bool(self.arguments['--dry-run'])
         self.cache = self.arguments['--updatecache']
@@ -110,15 +110,12 @@ class Cli:
 
                     proxy = DistributionProxy(self.cache, container)
                     stack.push(proxy)
-                    proxy.update_cache(
-                        tls_verify=self.tls, blocking=False
+
+                    proxy_thread = threading.Thread(
+                        target=proxy.update_cache, kwargs={'tls_verify': self.tls}
                     )
-                    self.pids[proxy.get_pid()] = 1
-                    logging.info(
-                        '[{}]: Processing Cache Update for: {} at {}'.format(
-                            proxy.get_pid(), container, self.cache
-                        )
-                    )
+                    proxy_thread.start()
+                    self.threads[format(count)] = proxy_thread
 
         # wait until all requests are processed
         if not self.dryrun:
@@ -128,14 +125,13 @@ class Cli:
                 request_count = self._get_running_requests()
 
     def _get_running_requests(self):
-        pids_to_delete = []
-        for pid in self.pids:
-            if not psutil.pid_exists(int(pid)):
-                logging.info(f'[{pid}]: Cache Update done')
-                pids_to_delete.append(pid)
-        for pid in pids_to_delete:
-            del self.pids[pid]
-        return len(self.pids.keys())
+        threads_done = []
+        for count in self.threads:
+            if not self.threads[count].is_alive():
+                threads_done.append(count)
+        for count in threads_done:
+            del self.threads[count]
+        return len(self.threads.keys())
 
     def _get_catalog(self) -> List[str]:
         response = Response()
