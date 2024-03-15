@@ -44,7 +44,9 @@ options:
 import re
 import time
 import logging
-from typing import List
+from typing import (
+    List, Dict
+)
 from docopt import docopt
 from contextlib import ExitStack
 import psutil
@@ -65,7 +67,7 @@ class Cli:
     """
     Implements the command line interface
     """
-    def __init__(self):
+    def __init__(self, process: bool = True) -> None:
         self.arguments = docopt(
             __doc__,
             version='cgyle version ' + __version__,
@@ -74,14 +76,15 @@ class Cli:
 
         self.max_requests = 10
         self.wait_timeout = 3
-        self.pids = {}
+        self.pids: Dict[str, int] = {}
         self.tls = False if self.arguments['--no-tls-verify'] else True
         self.dryrun = bool(self.arguments['--dry-run'])
         self.cache = self.arguments['--updatecache']
         self.pattern = self.arguments['--filter']
 
-        if self.arguments.get('--updatecache'):
-            self.update_cache()
+        if process:
+            if self.cache:
+                self.update_cache()
 
     def update_cache(self) -> None:
         count = 0

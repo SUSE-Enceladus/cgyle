@@ -72,7 +72,7 @@ class DistributionProxy:
         if exc_type == KeyboardInterrupt:
             if self.pid > 0:
                 os.kill(self.pid, 15)
-        else:
+        elif self.skopeo:
             # prevent becoming a zombie
             self.skopeo.wait()
             # print error information if present

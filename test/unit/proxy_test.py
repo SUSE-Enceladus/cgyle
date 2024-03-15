@@ -1,12 +1,19 @@
+import logging
 from unittest.mock import (
     patch, Mock
 )
-from pytest import raises
+from pytest import (
+    raises, fixture
+)
 from cgyle.proxy import DistributionProxy
 from cgyle.exceptions import CgyleCommandError
 
 
 class TestDistributionProxy:
+    @fixture(autouse=True)
+    def inject_fixtures(self, caplog):
+        self._caplog = caplog
+
     def setup(self):
         self.proxy = DistributionProxy('server', 'container')
 
@@ -33,3 +40,24 @@ class TestDistributionProxy:
             ], stdout=-1, stderr=-1
         )
         skopeo.communicate.assert_called_once_with()
+
+    def test_get_pid(self):
+        assert self.proxy.get_pid() == '0'
+
+    def test_context_manager_exit(self):
+        skopeo = Mock()
+        skopeo.stderr.read.return_value = 'some-error'
+        with self._caplog.at_level(logging.ERROR):
+            with DistributionProxy('server', 'container') as proxy:
+                proxy.pid = 1234
+                proxy.skopeo = skopeo
+            skopeo.wait.assert_called_once_with()
+            assert 'some-error' in self._caplog.text
+
+    @patch('os.kill')
+    def test_context_manager_exit_keyboard_interrupt(self, mock_os_kill):
+        with raises(KeyboardInterrupt):
+            with DistributionProxy('server', 'container') as proxy:
+                proxy.pid = 1234
+                raise KeyboardInterrupt
+            mock_os_kill.assert_called_once_with()
