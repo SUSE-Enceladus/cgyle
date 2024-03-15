@@ -23,7 +23,7 @@ For a quick test of cgyle use the OCI container as follows
 .. code:: bash
 
     podman pull pull registry.opensuse.org/home/marcus.schaefer/containers_tw/cgyle:latest
-    podman run --updatecache PROXY_URL --from https://registry.opensuse.org --filter '^opensuse/leap.*images.*toolbox' --dry-run
+    podman run --rm -t cgyle cgyle --updatecache PROXY_URL --from https://registry.opensuse.org --filter '^opensuse/leap.*images.*toolbox' --dry-run
 
 PROXY_URL points to a container registry of the above mentioned
 configuration. It is expected that the container registry proxy
