@@ -32,3 +32,15 @@ to lookup the container catalog.
 
 To effectively trigger the cache update in the PROXY_URL, remove
 the `--dry-run` option.
+
+Run From Source
+===============
+
+To run from source the following steps are needed:
+
+.. code:: bash
+
+    git clone https://github.com/schaefi/cgyle.git
+    cd cgyle
+    poetry install
+    poetry run cgyle --help
