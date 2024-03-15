@@ -17,13 +17,13 @@
 #
 """
 usage: cgyle -h | --help
-       cgyle --cacheupdate=<proxy> --from=<registry>
+       cgyle --updatecache=<proxy> --from=<registry>
            [--filter=<expression>]
            [--dry-run]
-           [--no-tls_verify]
+           [--no-tls-verify]
 
 options:
-    --cacheupdate=<proxy>
+    --updatecache=<proxy>
         Proxy location to trigger the cache update for
 
     --from=<registry>
@@ -35,7 +35,7 @@ options:
         Apply given regular expression on the list of
         containers received from the registry
 
-    --no-tls_verify
+    --no-tls-verify
         Don't require HTTPS
 
     --dry-run
@@ -75,12 +75,12 @@ class Cli:
         self.max_requests = 10
         self.wait_timeout = 3
         self.pids = {}
-        self.tls = False if self.arguments['--no-tls_verify'] else True
+        self.tls = False if self.arguments['--no-tls-verify'] else True
         self.dryrun = bool(self.arguments['--dry-run'])
-        self.cache = self.arguments['--cacheupdate']
+        self.cache = self.arguments['--updatecache']
         self.pattern = self.arguments['--filter']
 
-        if self.arguments.get('--cacheupdate'):
+        if self.arguments.get('--updatecache'):
             self.update_cache()
 
     def update_cache(self) -> None:
