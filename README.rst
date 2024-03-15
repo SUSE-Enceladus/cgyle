@@ -40,7 +40,8 @@ To run from source the following steps are needed:
 
 .. code:: bash
 
-    git clone https://github.com/schaefi/cgyle.git
+    ==> Clone this git
+
     cd cgyle
     poetry install
     poetry run cgyle --help
