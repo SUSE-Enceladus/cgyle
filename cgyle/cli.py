@@ -53,7 +53,7 @@ from contextlib import ExitStack
 
 from cgyle.version import __version__
 from cgyle.proxy import DistributionProxy
-from cgyle.response import Response
+from cgyle.catalog import Catalog
 
 from cgyle.exceptions import CgyleFilterExpressionError
 
@@ -134,8 +134,8 @@ class Cli:
         return len(self.threads.keys())
 
     def _get_catalog(self) -> List[str]:
-        response = Response()
-        return response.get_catalog(self.arguments['--from'])
+        catalog = Catalog()
+        return catalog.get_catalog(self.arguments['--from'])
 
     def _filter_ok(self, data: str) -> bool:
         if self.pattern:

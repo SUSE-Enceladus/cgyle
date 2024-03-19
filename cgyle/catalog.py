@@ -15,40 +15,31 @@
 # You should have received a copy of the GNU General Public License
 # along with cgyle.  If not, see <http://www.gnu.org/licenses/>
 #
-import json
-import requests
-import requests.packages.urllib3
-
-from cgyle.exceptions import (
-    CgyleJsonError,
-    CgyleRequestError
+from typing import (
+    List, Dict
 )
 
+from cgyle.response import Response
+from cgyle.exceptions import CgyleCatalogError
 
-class Response:
+
+class Catalog:
     """
-    Read HTTP response
+    Read v2 registry catalog
     """
     def __init__(self) -> None:
-        requests.packages.urllib3.disable_warnings()
+        self.response = Response()
 
-    def get(self, uri: str) -> dict:
+    def get_catalog(self, server: str) -> List[str]:
         """
-        Send GET request and expect JSON
+        Read registry catalog from a v2 registry format
         """
+        catalog_dict: Dict[str, List[str]] = self.response.get(
+            f'{server}/v2/_catalog'
+        )
         try:
-            response = requests.request(
-                'GET', uri, stream=True, data=None, headers=None
-            )
-        except Exception as issue:
-            raise CgyleRequestError(
-                f'Failed to handle request: {issue}'
-            )
-        try:
-            return json.loads(response.content)
-        except Exception:
-            raise CgyleJsonError(
-                'Failed to load response into JSON format: {}'.format(
-                    response.content.decode()
-                )
+            return catalog_dict['repositories']
+        except KeyError:
+            raise CgyleCatalogError(
+                f'Unexpected catalog response: {catalog_dict}'
             )

@@ -82,12 +82,12 @@ class TestCli:
         self.cli.threads = {'1': thread}
         assert self.cli._get_running_requests() == 0
 
-    @patch('cgyle.cli.Response')
-    def test_get_catalog(self, mock_Response):
-        response = Mock()
-        mock_Response.return_value = response
+    @patch('cgyle.cli.Catalog')
+    def test_get_catalog(self, mock_Catalog):
+        catalog = Mock()
+        mock_Catalog.return_value = catalog
         self.cli._get_catalog()
-        response.get_catalog.assert_called_once_with(
+        catalog.get_catalog.assert_called_once_with(
             'registry.opensuse.org'
         )
 
