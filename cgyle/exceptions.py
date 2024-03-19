@@ -56,3 +56,9 @@ class CgyleCatalogError(CgyleError):
     """
     Exception raised if the expected v2 catalog format doesn't exist
     """
+
+
+class CgylePodmanError(CgyleError):
+    """
+    Exception raised if podman call returns errors
+    """

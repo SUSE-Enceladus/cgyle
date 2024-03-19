@@ -19,6 +19,7 @@
 usage: cgyle -h | --help
        cgyle --updatecache=<proxy> --from=<registry>
            [--filter=<expression>]
+           [--use-podman-search]
            [--dry-run]
            [--no-tls-verify]
 
@@ -34,6 +35,10 @@ options:
     --filter=<expression>
         Apply given regular expression on the list of
         containers received from the registry
+
+    --use-podman-search
+        Use podman search instead of a direct API request
+        to retrieve the catalog data from the registry
 
     --no-tls-verify
         Contact given proxy location without TLS
@@ -81,6 +86,7 @@ class Cli:
         self.dryrun = bool(self.arguments['--dry-run'])
         self.cache = self.arguments['--updatecache']
         self.pattern = self.arguments['--filter']
+        self.use_podman_search = self.arguments['--use-podman-search']
 
         if process:
             if self.cache:
@@ -135,7 +141,10 @@ class Cli:
 
     def _get_catalog(self) -> List[str]:
         catalog = Catalog()
-        return catalog.get_catalog(self.arguments['--from'])
+        if self.use_podman_search:
+            return catalog.get_catalog_podman_search(self.arguments['--from'])
+        else:
+            return catalog.get_catalog(self.arguments['--from'])
 
     def _filter_ok(self, data: str) -> bool:
         if self.pattern:

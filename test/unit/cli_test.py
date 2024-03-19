@@ -83,11 +83,21 @@ class TestCli:
         assert self.cli._get_running_requests() == 0
 
     @patch('cgyle.cli.Catalog')
-    def test_get_catalog(self, mock_Catalog):
+    def test_get_catalog_request(self, mock_Catalog):
         catalog = Mock()
         mock_Catalog.return_value = catalog
         self.cli._get_catalog()
         catalog.get_catalog.assert_called_once_with(
+            'registry.opensuse.org'
+        )
+
+    @patch('cgyle.cli.Catalog')
+    def test_get_catalog_podman_search(self, mock_Catalog):
+        catalog = Mock()
+        mock_Catalog.return_value = catalog
+        self.cli.use_podman_search = True
+        self.cli._get_catalog()
+        catalog.get_catalog_podman_search.assert_called_once_with(
             'registry.opensuse.org'
         )
 
