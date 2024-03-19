@@ -50,3 +50,9 @@ class CgyleRequestError(CgyleError):
     """
     Exception raised if http request cannot be processed
     """
+
+
+class CgyleCatalogError(CgyleError):
+    """
+    Exception raised if the expected v2 catalog format doesn't exist
+    """

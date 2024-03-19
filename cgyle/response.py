@@ -24,7 +24,8 @@ from typing import (
 
 from cgyle.exceptions import (
     CgyleJsonError,
-    CgyleRequestError
+    CgyleRequestError,
+    CgyleCatalogError
 )
 
 
@@ -64,4 +65,9 @@ class Response:
         catalog_dict: Dict[str, List[str]] = response.get(
             f'{server}/v2/_catalog'
         )
-        return catalog_dict['repositories']
+        try:
+            return catalog_dict['repositories']
+        except KeyError:
+            raise CgyleCatalogError(
+                f'Unexpected catalog response: {catalog_dict}'
+            )

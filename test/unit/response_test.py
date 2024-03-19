@@ -5,7 +5,8 @@ from pytest import raises
 from cgyle.response import Response
 from cgyle.exceptions import (
     CgyleJsonError,
-    CgyleRequestError
+    CgyleRequestError,
+    CgyleCatalogError
 )
 
 
@@ -33,6 +34,16 @@ class TestResponse:
         assert self.response.get_catalog(
             'https://registry.opensuse.org/v2/_catalog'
         ) == ['name']
+
+    @patch('cgyle.response.requests')
+    def test_get_catalog_raises(self, mock_requests):
+        response = Mock()
+        response.content = b'{"errors": ["some"]}'
+        mock_requests.request.return_value = response
+        with raises(CgyleCatalogError):
+            self.response.get_catalog(
+                'https://registry.opensuse.org/v2/_catalog'
+            )
 
     @patch('cgyle.response.requests')
     def test_get_raises_on_json_import(self, mock_requests):
