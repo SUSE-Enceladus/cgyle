@@ -44,3 +44,9 @@ class CgyleFilterExpressionError(CgyleError):
     """
     Exception raised on invalid regular expression
     """
+
+
+class CgyleRequestError(CgyleError):
+    """
+    Exception raised if http request cannot be processed
+    """

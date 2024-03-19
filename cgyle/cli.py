@@ -36,7 +36,7 @@ options:
         containers received from the registry
 
     --no-tls-verify
-        Don't require HTTPS
+        Contact given proxy location without TLS
 
     --dry-run
         Only print what would happen

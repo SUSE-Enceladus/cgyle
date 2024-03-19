@@ -22,7 +22,10 @@ from typing import (
     List, Dict
 )
 
-from cgyle.exceptions import CgyleJsonError
+from cgyle.exceptions import (
+    CgyleJsonError,
+    CgyleRequestError
+)
 
 
 class Response:
@@ -36,14 +39,21 @@ class Response:
         """
         Send GET request and expect JSON
         """
-        response = requests.request(
-            'GET', uri, stream=True, data=None, headers=None
-        )
+        try:
+            response = requests.request(
+                'GET', uri, stream=True, data=None, headers=None
+            )
+        except Exception as issue:
+            raise CgyleRequestError(
+                f'Failed to handle request: {issue}'
+            )
         try:
             return json.loads(response.content)
-        except Exception as issue:
+        except Exception:
             raise CgyleJsonError(
-                f'Failed to load response into JSON format: {issue}'
+                'Failed to load response into JSON format: {}'.format(
+                    response.content.decode()
+                )
             )
 
     def get_catalog(self, server: str) -> List[str]:
