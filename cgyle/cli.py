@@ -23,6 +23,7 @@ usage: cgyle -h | --help
            [--dry-run]
            [--no-tls-verify-proxy]
            [--no-tls-verify-registry]
+           [--registry-creds=<user:pwd>]
 
 options:
     --updatecache=<proxy>
@@ -46,6 +47,9 @@ options:
 
     --no-tls-verify-registry
         Contact given registry location without TLS
+
+    --registry-creds=<user:pwd>
+        Contact given registry with the provided credentials
 
     --dry-run
         Only print what would happen
@@ -88,6 +92,7 @@ class Cli:
         self.threads: Dict[str, threading.Thread] = {}
         self.tls_proxy = False if self.arguments['--no-tls-verify-proxy'] else True
         self.tls_registry = False if self.arguments['--no-tls-verify-registry'] else True
+        self.tls_registry_creds = self.arguments['--registry-creds'] or ''
         self.dryrun = bool(self.arguments['--dry-run'])
         self.cache = self.arguments['--updatecache']
         self.pattern = self.arguments['--filter']
@@ -148,7 +153,8 @@ class Cli:
         catalog = Catalog()
         if self.use_podman_search:
             return catalog.get_catalog_podman_search(
-                self.arguments['--from'], self.tls_registry
+                self.arguments['--from'], self.tls_registry,
+                self.tls_registry_creds
             )
         else:
             return catalog.get_catalog(self.arguments['--from'])

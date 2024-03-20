@@ -51,7 +51,7 @@ class Catalog:
             )
 
     def get_catalog_podman_search(
-        self, server: str, tls_verify: bool = True
+        self, server: str, tls_verify: bool = True, creds: str = ''
     ) -> List[str]:
         """
         Read registry catalog using podman search
@@ -62,9 +62,15 @@ class Catalog:
         call_args = [
             'podman', 'search',
             f'--tls-verify={format(tls_verify).lower()}',
-            '--limit', '2147483647',
-            f'{server}:/'
+            '--limit', '2147483647'
         ]
+        if creds:
+            call_args += [
+                '--creds', creds
+            ]
+        call_args.append(
+            f'{server}:/'
+        )
         try:
             self.podman = subprocess.Popen(
                 call_args,

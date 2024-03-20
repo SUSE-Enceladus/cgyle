@@ -56,5 +56,12 @@ class TestCatalog:
         podman.communicate.return_value = (b'server/A\nserver/B', b'')
         mock_Popen.return_value = podman
         assert self.catalog.get_catalog_podman_search(
-            'https://registry.opensuse.org'
+            'https://registry.opensuse.org', True, 'user:pwd'
         ) == ['A', 'B']
+        mock_Popen.assert_called_once_with(
+            [
+                'podman', 'search', '--tls-verify=true',
+                '--limit', '2147483647', '--creds', 'user:pwd',
+                'registry.opensuse.org:/'
+            ], stdout=-1, stderr=-1
+        )
