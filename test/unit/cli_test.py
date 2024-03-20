@@ -98,7 +98,7 @@ class TestCli:
         self.cli.use_podman_search = True
         self.cli._get_catalog()
         catalog.get_catalog_podman_search.assert_called_once_with(
-            'registry.opensuse.org'
+            'registry.opensuse.org', True
         )
 
     def test_filter_ok(self):

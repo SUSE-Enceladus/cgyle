@@ -21,7 +21,8 @@ usage: cgyle -h | --help
            [--filter=<expression>]
            [--use-podman-search]
            [--dry-run]
-           [--no-tls-verify]
+           [--no-tls-verify-proxy]
+           [--no-tls-verify-registry]
 
 options:
     --updatecache=<proxy>
@@ -40,8 +41,11 @@ options:
         Use podman search instead of a direct API request
         to retrieve the catalog data from the registry
 
-    --no-tls-verify
+    --no-tls-verify-proxy
         Contact given proxy location without TLS
+
+    --no-tls-verify-registry
+        Contact given registry location without TLS
 
     --dry-run
         Only print what would happen
@@ -82,7 +86,8 @@ class Cli:
         self.max_requests = 10
         self.wait_timeout = 3
         self.threads: Dict[str, threading.Thread] = {}
-        self.tls = False if self.arguments['--no-tls-verify'] else True
+        self.tls_proxy = False if self.arguments['--no-tls-verify-proxy'] else True
+        self.tls_registry = False if self.arguments['--no-tls-verify-registry'] else True
         self.dryrun = bool(self.arguments['--dry-run'])
         self.cache = self.arguments['--updatecache']
         self.pattern = self.arguments['--filter']
@@ -118,7 +123,7 @@ class Cli:
                     stack.push(proxy)
 
                     proxy_thread = threading.Thread(
-                        target=proxy.update_cache, kwargs={'tls_verify': self.tls}
+                        target=proxy.update_cache, kwargs={'tls_verify': self.tls_proxy}
                     )
                     proxy_thread.start()
                     self.threads[format(count)] = proxy_thread
@@ -142,7 +147,9 @@ class Cli:
     def _get_catalog(self) -> List[str]:
         catalog = Catalog()
         if self.use_podman_search:
-            return catalog.get_catalog_podman_search(self.arguments['--from'])
+            return catalog.get_catalog_podman_search(
+                self.arguments['--from'], self.tls_registry
+            )
         else:
             return catalog.get_catalog(self.arguments['--from'])
 
