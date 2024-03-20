@@ -47,9 +47,11 @@ options:
 
     --no-tls-verify-registry
         Contact given registry location without TLS
+        NOTE: Only effective together with --use-podman-search
 
     --registry-creds=<user:pwd>
         Contact given registry with the provided credentials
+        NOTE: Only effective together with --use-podman-search
 
     --dry-run
         Only print what would happen
