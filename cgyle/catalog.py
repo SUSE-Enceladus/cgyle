@@ -86,7 +86,9 @@ class Catalog:
                 result = []
                 for line in output.decode().split(os.linesep):
                     server, slash, container = line.partition(os.sep)
-                    result.append(container.strip())
+                    container = container.strip()
+                    if container:
+                        result.append(container)
         except CgylePodmanError:
             raise
         except Exception as issue:
