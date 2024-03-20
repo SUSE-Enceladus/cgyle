@@ -14,7 +14,7 @@ class TestDistributionProxy:
         self._caplog = caplog
 
     def setup(self):
-        self.proxy = DistributionProxy('server', 'container')
+        self.proxy = DistributionProxy('https://server', 'container')
 
     def setup_method(self, cls):
         self.setup()

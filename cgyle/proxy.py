@@ -42,10 +42,13 @@ class DistributionProxy:
         """
         Trigger a cache update of the container
         """
+        server = self.server
+        server = server.replace('http://', '')
+        server = server.replace('https://', '')
         call_args = [
             'skopeo', 'copy',
             f'--src-tls-verify={format(tls_verify).lower()}',
-            f'docker://{self.server}/{self.container}:{tag}',
+            f'docker://{server}/{self.container}:{tag}',
             f'oci-archive:/dev/null:{tag}'
         ]
         try:
@@ -57,7 +60,7 @@ class DistributionProxy:
             self.pid = self.skopeo.pid
             logging.info(
                 '[{}]: Processing Cache Update for: {} at {}'.format(
-                    self.pid, self.container, self.server
+                    self.pid, self.container, server
                 )
             )
             output, error = self.skopeo.communicate()
