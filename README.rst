@@ -23,15 +23,15 @@ For a quick test of cgyle use the OCI container as follows
 .. code:: bash
 
     podman pull pull registry.opensuse.org/home/marcus.schaefer/containers_tw/cgyle:latest
-    podman run --rm -t cgyle cgyle --updatecache PROXY_URL --from https://registry.opensuse.org --filter '^opensuse/leap.*images.*toolbox' --dry-run
+    podman run --rm -t cgyle cgyle --updatecache PROXY_URL --from https://registry.opensuse.org --filter '^opensuse/leap.*images.*toolbox'
 
 PROXY_URL points to a container registry of the above mentioned
 configuration. It is expected that the container registry proxy
 setup points to the same registry as used in the `--from` parameter
 to lookup the container catalog.
 
-To effectively trigger the cache update in the PROXY_URL, remove
-the `--dry-run` option.
+To effectively trigger the cache update in the PROXY_URL, add
+the `--apply` option.
 
 Run From Source
 ===============

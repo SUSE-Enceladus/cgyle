@@ -44,7 +44,7 @@ class TestCli:
         self.cli.dryrun = True
         with self._caplog.at_level(logging.INFO):
             self.cli.update_cache()
-            assert 'Requesting Cache Update' in self._caplog.text
+            assert 'some-container' in self._caplog.text
 
     @patch.object(Cli, '_filter_ok')
     @patch.object(Cli, '_get_catalog')
@@ -86,6 +86,7 @@ class TestCli:
     def test_get_catalog_request(self, mock_Catalog):
         catalog = Mock()
         mock_Catalog.return_value = catalog
+        self.cli.use_podman_search = False
         self.cli._get_catalog()
         catalog.get_catalog.assert_called_once_with(
             'registry.opensuse.org'

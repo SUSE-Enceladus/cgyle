@@ -78,7 +78,7 @@ class Catalog:
                 stderr=subprocess.PIPE
             )
             output, error = self.podman.communicate()
-            if error:
+            if error and self.podman.returncode != 0:
                 raise CgylePodmanError(
                     f'podman search failed with: {error.decode()}'
                 )

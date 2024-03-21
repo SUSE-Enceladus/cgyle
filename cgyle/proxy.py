@@ -59,16 +59,16 @@ class DistributionProxy:
             )
             self.pid = self.skopeo.pid
             logging.info(
-                '[{}]: Processing Cache Update for: {} at {}'.format(
+                '[{}]: Update Container: {}@{}'.format(
                     self.pid, self.container, server
                 )
             )
             output, error = self.skopeo.communicate()
             if error:
-                logging.error(f'[{self.pid}]: {error!r}')
+                logging.error(f'[{self.pid}]: [E] - {error!r}')
             if output:
-                logging.info(f'[{self.pid}]: {output!r}')
-            logging.info(f'[{self.pid}]: Cache Update done')
+                logging.info(f'[{self.pid}]: [OK] - {output!r}')
+            logging.info(f'[{self.pid}]: [Done]')
         except Exception as issue:
             raise CgyleCommandError(
                 'Failed to update cache for: {}: {}'.format(

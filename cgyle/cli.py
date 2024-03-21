@@ -18,43 +18,36 @@
 """
 usage: cgyle -h | --help
        cgyle --updatecache=<proxy> --from=<registry>
+           [--apply]
            [--filter=<expression>]
-           [--use-podman-search]
-           [--dry-run]
-           [--no-tls-verify-proxy]
-           [--no-tls-verify-registry]
            [--registry-creds=<user:pwd>]
+           [--tls-verify-proxy=<BOOL>]
+           [--tls-verify-registry=<BOOL>]
 
 options:
-    --updatecache=<proxy>
-        Proxy location to trigger the cache update for
+    --apply
+        Apply the cache update
+
+    --filter=<expression>
+        Apply given regular expression on the list of
+        containers received from the registry
 
     --from=<registry>
         Registry location to read the catalog of containers
         from. It is expected that the referenced proxy registry
         uses this location in its configuration
 
-    --filter=<expression>
-        Apply given regular expression on the list of
-        containers received from the registry
-
-    --use-podman-search
-        Use podman search instead of a direct API request
-        to retrieve the catalog data from the registry
-
-    --no-tls-verify-proxy
-        Contact given proxy location without TLS
-
-    --no-tls-verify-registry
-        Contact given registry location without TLS
-        NOTE: Only effective together with --use-podman-search
-
     --registry-creds=<user:pwd>
         Contact given registry with the provided credentials
-        NOTE: Only effective together with --use-podman-search
 
-    --dry-run
-        Only print what would happen
+    --tls-verify-proxy=BOOL
+        Contact given proxy location without TLS [default: True]
+
+    --tls-verify-registry=BOOL
+        Contact given registry location without TLS [default: True]
+
+    --updatecache=<proxy>
+        Proxy location to trigger the cache update for
 """
 import re
 import time
@@ -92,13 +85,18 @@ class Cli:
         self.max_requests = 10
         self.wait_timeout = 3
         self.threads: Dict[str, threading.Thread] = {}
-        self.tls_proxy = False if self.arguments['--no-tls-verify-proxy'] else True
-        self.tls_registry = False if self.arguments['--no-tls-verify-registry'] else True
+        self.tls_proxy = \
+            True if self.arguments['--tls-verify-proxy'] == 'True' else False
+        self.tls_registry = \
+            True if self.arguments['--tls-verify-registry'] == 'True' else False
         self.tls_registry_creds = self.arguments['--registry-creds'] or ''
-        self.dryrun = bool(self.arguments['--dry-run'])
+        self.dryrun = not bool(self.arguments['--apply'])
         self.cache = self.arguments['--updatecache']
         self.pattern = self.arguments['--filter']
-        self.use_podman_search = self.arguments['--use-podman-search']
+
+        self.use_podman_search = False
+        if self.tls_registry_creds or self.tls_registry:
+            self.use_podman_search = True
 
         if process:
             if self.cache:
@@ -108,16 +106,14 @@ class Cli:
         count = 0
         request_count = 0
         with ExitStack() as stack:
+            if self.dryrun:
+                logging.info(f'Proxy: [{self.cache}]:')
             for container in self._get_catalog():
                 if not self._filter_ok(container):
                     continue
                 count += 1
                 if self.dryrun:
-                    logging.info(
-                        '({}): Requesting Cache Update for: {} at {}'.format(
-                            count, container, self.cache
-                        )
-                    )
+                    logging.info(f'  ({count}) - {container}')
                 else:
                     request_count += 1
                     while request_count >= self.max_requests:
@@ -130,7 +126,8 @@ class Cli:
                     stack.push(proxy)
 
                     proxy_thread = threading.Thread(
-                        target=proxy.update_cache, kwargs={'tls_verify': self.tls_proxy}
+                        target=proxy.update_cache,
+                        kwargs={'tls_verify': self.tls_proxy}
                     )
                     proxy_thread.start()
                     self.threads[format(count)] = proxy_thread
