@@ -35,14 +35,87 @@ class TestDistributionProxy:
             [
                 'skopeo', 'copy',
                 '--src-tls-verify=true',
-                'docker://server/container:latest',
-                'oci-archive:/dev/null:latest'
+                'docker://server/container',
+                'oci-archive:/dev/null'
             ], stdout=-1, stderr=-1
         )
         skopeo.communicate.assert_called_once_with()
 
     def test_get_pid(self):
         assert self.proxy.get_pid() == '0'
+
+    @patch('cgyle.proxy.Catalog')
+    @patch('cgyle.proxy.subprocess.Popen')
+    @patch('cgyle.proxy.Path')
+    def test_create_local_distribution_instance_raises(
+        self, mock_Path, mock_Popen, mock_Catalog
+    ):
+        podman_create = Mock()
+        podman_create.communicate.return_value = (b'output', b'error')
+        mock_Popen.return_value = podman_create
+        with patch('builtins.open', create=True):
+            with raises(CgyleCommandError):
+                self.proxy.create_local_distribution_instance(
+                    'data_dir', 'remote'
+                )
+        podman_create.communicate.return_value = (b'output', b'')
+        mock_Popen.side_effect = Exception
+        with patch('builtins.open', create=True):
+            with raises(CgyleCommandError):
+                self.proxy.create_local_distribution_instance(
+                    'data_dir', 'remote'
+                )
+
+    @patch('time.sleep')
+    @patch('cgyle.proxy.Catalog')
+    @patch('cgyle.proxy.subprocess.Popen')
+    @patch('cgyle.proxy.Path')
+    def test_create_local_distribution_instance_connection_error(
+        self, mock_Path, mock_Popen, mock_Catalog, mock_time
+    ):
+        podman_create = Mock()
+        podman_create.communicate.return_value = (b'output', b'')
+        mock_Popen.return_value = podman_create
+        catalog = Mock()
+        catalog.get_catalog.side_effect = Exception
+        mock_Catalog.return_value = catalog
+        with patch('builtins.open', create=True):
+            with raises(CgyleCommandError):
+                self.proxy.create_local_distribution_instance(
+                    'data_dir', 'remote'
+                )
+
+    @patch('os.path.abspath')
+    @patch('cgyle.proxy.NamedTemporaryFile')
+    @patch('cgyle.proxy.Catalog')
+    @patch('cgyle.proxy.subprocess.Popen')
+    @patch('cgyle.proxy.Path')
+    def test_create_local_distribution_instance(
+        self, mock_Path, mock_Popen, mock_Catalog, mock_NamedTemporaryFile,
+        mock_os_path_abspath
+    ):
+        mock_os_path_abspath.return_value = 'some_abs_path'
+        tmp_file = Mock()
+        tmp_file.name = '/tmp/cgyle_local_distXXXX'
+        mock_NamedTemporaryFile.return_value = tmp_file
+        podman_create = Mock()
+        podman_create.communicate.return_value = (b'output', b'')
+        mock_Popen.return_value = podman_create
+        with patch('builtins.open', create=True):
+            self.proxy.create_local_distribution_instance(
+                'data_dir', 'remote'
+            )
+            mock_Path.assert_called_once_with('data_dir')
+            mock_Popen.assert_called_once_with(
+                [
+                    'podman', 'run', '--detach',
+                    '--name', 'cgyle_local_distXXXX',
+                    '-p', '5000:5000',
+                    '-v', 'some_abs_path/:/var/lib/registry/',
+                    '-v', '/tmp/cgyle_local_distXXXX:/etc/docker/registry/config.yml',
+                    'docker.io/library/registry:latest'
+                ], stdout=-1, stderr=-1
+            )
 
     @patch('os.kill')
     def test_context_manager_exit_keyboard_interrupt(self, mock_os_kill):
@@ -51,3 +124,11 @@ class TestDistributionProxy:
                 proxy.pid = 1234
                 raise KeyboardInterrupt
             mock_os_kill.assert_called_once_with()
+
+    @patch('cgyle.proxy.subprocess.Popen')
+    def test_context_manager_exit_registry_cleanup(self, mock_Popen):
+        with DistributionProxy('server', 'container') as proxy:
+            proxy.registry_name = 'some'
+        mock_Popen.assert_called_once_with(
+            ['podman', 'rm', '--force', 'some'], stdout=-1, stderr=-1
+        )

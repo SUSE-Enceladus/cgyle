@@ -64,6 +64,7 @@ BuildRequires:  python%{python3_pkgversion}-wheel
 BuildRequires:  python%{python3_pkgversion}-docopt >= 0.6.2
 BuildRequires:  python%{python3_pkgversion}-requests
 BuildRequires:  python%{python3_pkgversion}-setuptools
+BuildRequires:  python%{python3_pkgversion}-PyYAML
 
 %description
 Tooling for the pubcloud team. Allows to pre-populate
@@ -82,6 +83,7 @@ Requires:       python%{python3_pkgversion} >= 3.9
 Requires:       python%{python3_pkgversion}-docopt
 Requires:       python%{python3_pkgversion}-requests
 Requires:       python%{python3_pkgversion}-setuptools
+Requires:       python%{python3_pkgversion}-PyYAML
 Requires:       skopeo
 Requires:       podman
 

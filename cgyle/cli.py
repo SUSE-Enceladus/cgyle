@@ -47,7 +47,10 @@ options:
         Contact given registry location without TLS [default: True]
 
     --updatecache=<proxy>
-        Proxy location to trigger the cache update for
+        Proxy location to trigger the cache update for. If
+        the special value local://distribution:DIR is set, a local
+        distribution registry will be started as a proxy and
+        its cache is stored below the given directory DIR
 """
 import re
 import time
@@ -93,6 +96,11 @@ class Cli:
         self.dryrun = not bool(self.arguments['--apply'])
         self.cache = self.arguments['--updatecache']
         self.pattern = self.arguments['--filter']
+        self.from_registry = self.arguments['--from']
+
+        self.local_distribution_cache = ''
+        if self.cache.startswith('local://distribution'):
+            self.local_distribution_cache = self.cache.split(':')[2]
 
         self.use_podman_search = False
         if self.tls_registry_creds or self.tls_registry:
@@ -105,39 +113,52 @@ class Cli:
     def update_cache(self) -> None:
         count = 0
         request_count = 0
-        with ExitStack() as stack:
-            if self.dryrun:
-                logging.info(f'Proxy: [{self.cache}]:')
-            for container in self._get_catalog():
-                if not self._filter_ok(container):
-                    continue
-                count += 1
+
+        with ExitStack() as main:
+            if self.local_distribution_cache and not self.dryrun:
+                # local instance for cache setup requested
+                local_proxy = DistributionProxy(self.cache)
+                main.push(local_proxy)
+                self.tls_proxy = False
+                self.cache = local_proxy.create_local_distribution_instance(
+                    data_dir=self.local_distribution_cache,
+                    remote=self.from_registry
+                )
+
+            with ExitStack() as stack:
+                # process container fetch requests...
                 if self.dryrun:
-                    logging.info(f'  ({count}) - {container}')
-                else:
-                    request_count += 1
-                    while request_count >= self.max_requests:
-                        stack.pop_all().close()
-                        request_count = self._get_running_requests()
-                        if request_count >= self.max_requests:
-                            time.sleep(self.wait_timeout)
+                    logging.info(f'Proxy: [{self.cache}]:')
+                for container in self._get_catalog():
+                    if not self._filter_ok(container):
+                        continue
+                    count += 1
+                    if self.dryrun:
+                        logging.info(f'  ({count}) - {container}')
+                    else:
+                        request_count += 1
+                        while request_count >= self.max_requests:
+                            stack.pop_all().close()
+                            request_count = self._get_running_requests()
+                            if request_count >= self.max_requests:
+                                time.sleep(self.wait_timeout)
 
-                    proxy = DistributionProxy(self.cache, container)
-                    stack.push(proxy)
+                        proxy = DistributionProxy(self.cache, container)
+                        stack.push(proxy)
 
-                    proxy_thread = threading.Thread(
-                        target=proxy.update_cache,
-                        kwargs={'tls_verify': self.tls_proxy}
-                    )
-                    proxy_thread.start()
-                    self.threads[format(count)] = proxy_thread
+                        proxy_thread = threading.Thread(
+                            target=proxy.update_cache,
+                            kwargs={'tls_verify': self.tls_proxy}
+                        )
+                        proxy_thread.start()
+                        self.threads[format(count)] = proxy_thread
 
-        # wait until all requests are processed
-        if not self.dryrun:
-            request_count = self._get_running_requests()
-            while request_count > 0:
-                time.sleep(self.wait_timeout)
+            if not self.dryrun:
+                # wait until all requests are processed
                 request_count = self._get_running_requests()
+                while request_count > 0:
+                    time.sleep(self.wait_timeout)
+                    request_count = self._get_running_requests()
 
     def _get_running_requests(self):
         threads_done = []
@@ -152,11 +173,11 @@ class Cli:
         catalog = Catalog()
         if self.use_podman_search:
             return catalog.get_catalog_podman_search(
-                self.arguments['--from'], self.tls_registry,
+                self.from_registry, self.tls_registry,
                 self.tls_registry_creds
             )
         else:
-            return catalog.get_catalog(self.arguments['--from'])
+            return catalog.get_catalog(self.from_registry)
 
     def _filter_ok(self, data: str) -> bool:
         if self.pattern:
