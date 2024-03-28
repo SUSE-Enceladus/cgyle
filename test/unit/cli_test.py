@@ -1,7 +1,7 @@
 import logging
 from cgyle.cli import Cli
 from unittest.mock import (
-    patch, Mock
+    patch, Mock, call
 )
 from pytest import (
     raises, fixture
@@ -66,14 +66,23 @@ class TestCli:
         mock_get_catalog.return_value = ['some-container']
         mock_filter_ok.return_value = True
         self.cli.dryrun = False
+        self.cli.local_distribution_cache = 'local://distribution:some'
         self.cli.max_requests = 1
         with self._caplog.at_level(logging.INFO):
             self.cli.update_cache()
-            mock_DistributionProxy.assert_called_once_with(
-                'localhost:5000', 'some-container'
+            assert mock_DistributionProxy.call_args_list == [
+                call('local://distribution:some'),
+                call(
+                    proxy.create_local_distribution_instance.return_value,
+                    'some-container'
+                )
+            ]
+            proxy.create_local_distribution_instance.assert_called_once_with(
+                data_dir='local://distribution:some',
+                remote='registry.opensuse.org'
             )
             proxy.update_cache.assert_called_once_with(
-                tls_verify=True
+                tls_verify=False
             )
 
     def test_get_running_requests(self):
