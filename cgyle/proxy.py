@@ -88,11 +88,24 @@ class DistributionProxy:
         return format(self.pid)
 
     def create_local_distribution_instance(
-        self, data_dir: str, remote: str, port: int = 5000
+        self, data_dir: str, remote: str, port: int = 5000,
+        proxy_creds: str = ''
     ) -> str:
         self.registry_config = NamedTemporaryFile(prefix='cgyle_local_dist')
+        username = ''
+        password = ''
+        if proxy_creds:
+            try:
+                username, password = proxy_creds.split(':')
+            except ValueError:
+                raise CgyleCommandError(
+                    f'Invalid credentials, expected user:pass, got {proxy_creds}'
+                )
         with open(self.registry_config.name, 'w') as config:
-            yaml.dump(self._get_distribution_config(remote, port), config)
+            yaml.dump(
+                self._get_distribution_config(remote, port, username, password),
+                config
+            )
         logging.info(
             f'Find local registry data at: {os.path.abspath(data_dir)}'
         )
@@ -100,9 +113,13 @@ class DistributionProxy:
         self.registry_name = f'{os.path.basename(self.registry_config.name)}'
         podman_create_args = [
             'podman', 'run', '--detach', '--name', self.registry_name,
-            '-p', f'{port}:{port}',
+            '--net', 'host',
             '-v', f'{os.path.abspath(data_dir)}/:/var/lib/registry/',
             '-v', f'{self.registry_config.name}:/etc/docker/registry/config.yml',
+            '-v', '/etc/pki/:/etc/pki/',
+            '-v', '/etc/hosts:/etc/hosts',
+            '-v', '/etc/ssl/:/etc/ssl/',
+            '-v', '/var/lib/ca-certificates/:/var/lib/ca-certificates/',
             'docker.io/library/registry:latest'
         ]
         try:
@@ -140,7 +157,9 @@ class DistributionProxy:
                 f'Failed to create distribution instance: {issue!r}'
             )
 
-    def _get_distribution_config(self, remote: str, port: int) -> dict:
+    def _get_distribution_config(
+        self, remote: str, port: int, username: str, password: str
+    ) -> dict:
         config_string = dedent('''
             version: 0.1
             log:
@@ -169,6 +188,9 @@ class DistributionProxy:
         config = yaml.safe_load(config_string)
         config['http']['addr'] = f':{port}'
         config['proxy']['remoteurl'] = remote
+        if username and password:
+            config['proxy']['username'] = username
+            config['proxy']['password'] = password
         return config
 
     def __exit__(self, exc_type, exc_value, traceback):

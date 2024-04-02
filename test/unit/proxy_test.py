@@ -56,6 +56,11 @@ class TestDistributionProxy:
         with patch('builtins.open', create=True):
             with raises(CgyleCommandError):
                 self.proxy.create_local_distribution_instance(
+                    'data_dir', 'remote', 5000, 'bogus_creds'
+                )
+        with patch('builtins.open', create=True):
+            with raises(CgyleCommandError):
+                self.proxy.create_local_distribution_instance(
                     'data_dir', 'remote'
                 )
         podman_create.communicate.return_value = (b'output', b'')
@@ -103,16 +108,20 @@ class TestDistributionProxy:
         mock_Popen.return_value = podman_create
         with patch('builtins.open', create=True):
             self.proxy.create_local_distribution_instance(
-                'data_dir', 'remote'
+                'data_dir', 'remote', 5000, 'user:pass'
             )
             mock_Path.assert_called_once_with('data_dir')
             mock_Popen.assert_called_once_with(
                 [
                     'podman', 'run', '--detach',
                     '--name', 'cgyle_local_distXXXX',
-                    '-p', '5000:5000',
+                    '--net', 'host',
                     '-v', 'some_abs_path/:/var/lib/registry/',
                     '-v', '/tmp/cgyle_local_distXXXX:/etc/docker/registry/config.yml',
+                    '-v', '/etc/pki/:/etc/pki/',
+                    '-v', '/etc/hosts:/etc/hosts',
+                    '-v', '/etc/ssl/:/etc/ssl/',
+                    '-v', '/var/lib/ca-certificates/:/var/lib/ca-certificates/',
                     'docker.io/library/registry:latest'
                 ], stdout=-1, stderr=-1
             )

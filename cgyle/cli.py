@@ -122,7 +122,8 @@ class Cli:
                 self.tls_proxy = False
                 self.cache = local_proxy.create_local_distribution_instance(
                     data_dir=self.local_distribution_cache,
-                    remote=self.from_registry
+                    remote=self.from_registry,
+                    proxy_creds=self.tls_registry_creds
                 )
 
             with ExitStack() as stack:

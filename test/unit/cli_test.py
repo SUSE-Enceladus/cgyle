@@ -79,7 +79,8 @@ class TestCli:
             ]
             proxy.create_local_distribution_instance.assert_called_once_with(
                 data_dir='local://distribution:some',
-                remote='registry.opensuse.org'
+                remote='registry.opensuse.org',
+                proxy_creds=''
             )
             proxy.update_cache.assert_called_once_with(
                 tls_verify=False
