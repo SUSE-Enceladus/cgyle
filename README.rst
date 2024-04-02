@@ -49,4 +49,4 @@ To run from source the following steps are needed:
 
         poetry run cgyle --updatecache local://distribution:my_mirror --from https://registry.opensuse.org --filter '^opensuse/leap.*images.*toolbox' --apply
 
-   Creates a local mirror below the `my_mirror` directory
+   Find the data tree below the `my_mirror` directory
