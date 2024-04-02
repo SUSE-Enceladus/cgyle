@@ -43,7 +43,7 @@ To run from source the following steps are needed:
    To effectively trigger the cache update in the PROXY_URL, add
    the `--apply` option.
 
-2. Create a local distribution data tree mirror
+2. Create a local **distribution format** data tree mirror
 
     .. code:: bash
 
