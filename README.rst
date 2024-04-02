@@ -27,12 +27,26 @@ To run from source the following steps are needed:
     cd cgyle
     poetry install
 
-    poetry run cgyle --updatecache PROXY_URL --from https://registry.opensuse.org --filter '^opensuse/leap.*images.*toolbox'
+    poetry run cgyle --help
 
-PROXY_URL points to a container registry of the above mentioned
-configuration. It is expected that the container registry proxy
-setup points to the same registry as used in the `--from` parameter
-to lookup the container catalog.
+1. Trigger a cache update in an already running proxy
 
-To effectively trigger the cache update in the PROXY_URL, add
-the `--apply` option.
+    .. code:: bash
+
+        poetry run cgyle --updatecache PROXY_URL --from https://registry.opensuse.org --filter '^opensuse/leap.*images.*toolbox'
+
+    PROXY_URL points to a container registry of the above mentioned
+    configuration. It is expected that the container registry proxy
+    setup points to the same registry as used in the `--from` parameter
+    to lookup the container catalog.
+
+    To effectively trigger the cache update in the PROXY_URL, add
+    the `--apply` option.
+
+2. Create a local distribution data tree mirror
+
+    .. code:: bash
+
+        poetry run cgyle --updatecache local://distribution:my_mirror --from https://registry.opensuse.org --filter '^opensuse/leap.*images.*toolbox' --apply
+
+   Creates a local mirror below the `my_mirror` directory
