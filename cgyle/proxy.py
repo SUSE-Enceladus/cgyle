@@ -44,7 +44,8 @@ class DistributionProxy:
         return self
 
     def update_cache(
-        self, tag: str = '', tls_verify: bool = True
+        self, tag: str = '', tls_verify: bool = True,
+        store_oci_archive: str = ''
     ) -> None:
         """
         Trigger a cache update of the container
@@ -53,11 +54,19 @@ class DistributionProxy:
         server = server.replace('http://', '')
         server = server.replace('https://', '')
         tagname = f':{tag}' if tag else ''
+
+        archive_name = '/dev/null'
+        if store_oci_archive:
+            Path(store_oci_archive).mkdir(parents=True, exist_ok=True)
+            archive_name = '{}/{}.oci.tar'.format(
+                store_oci_archive, os.path.basename(self.container)
+            )
+
         call_args = [
             'skopeo', 'copy',
             f'--src-tls-verify={format(tls_verify).lower()}',
             f'docker://{server}/{self.container}{tagname}',
-            f'oci-archive:/dev/null{tagname}'
+            f'oci-archive:{archive_name}{tagname}'
         ]
         try:
             self.skopeo = subprocess.Popen(

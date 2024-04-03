@@ -30,13 +30,13 @@ class TestDistributionProxy:
         skopeo = Mock()
         skopeo.communicate.return_value = ('output', 'error')
         mock_Popen.return_value = skopeo
-        self.proxy.update_cache()
+        self.proxy.update_cache(store_oci_archive='some_dir')
         mock_Popen.assert_called_once_with(
             [
                 'skopeo', 'copy',
                 '--src-tls-verify=true',
                 'docker://server/container',
-                'oci-archive:/dev/null'
+                'oci-archive:some_dir/container.oci.tar'
             ], stdout=-1, stderr=-1
         )
         skopeo.communicate.assert_called_once_with()

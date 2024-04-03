@@ -21,6 +21,7 @@ usage: cgyle -h | --help
            [--apply]
            [--filter=<expression>]
            [--registry-creds=<user:pwd>]
+           [--store-oci-archive=<dir>]
            [--tls-verify-proxy=<BOOL>]
            [--tls-verify-registry=<BOOL>]
 
@@ -39,6 +40,10 @@ options:
 
     --registry-creds=<user:pwd>
         Contact given registry with the provided credentials
+
+    --store-oci-archive=<dir>
+        Store each container as oci archive below the given
+        directory
 
     --tls-verify-proxy=BOOL
         Contact given proxy location without TLS [default: True]
@@ -97,6 +102,7 @@ class Cli:
         self.cache = self.arguments['--updatecache']
         self.pattern = self.arguments['--filter']
         self.from_registry = self.arguments['--from']
+        self.store_oci_archive = self.arguments['--store-oci-archive'] or ''
 
         self.local_distribution_cache = ''
         if self.cache.startswith('local://distribution'):
@@ -149,7 +155,10 @@ class Cli:
 
                         proxy_thread = threading.Thread(
                             target=proxy.update_cache,
-                            kwargs={'tls_verify': self.tls_proxy}
+                            kwargs={
+                                'tls_verify': self.tls_proxy,
+                                'store_oci_archive': self.store_oci_archive
+                            }
                         )
                         proxy_thread.start()
                         self.threads[format(count)] = proxy_thread
