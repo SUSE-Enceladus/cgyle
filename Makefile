@@ -30,6 +30,11 @@ build: clean tox
 	poetry build --format=sdist
 	# provide rpm source tarball
 	mv dist/cgyle-${version}.tar.gz dist/python-cgyle.tar.gz
+	# update rpm changelog using reference file
+	helper/update_changelog.py --since package/python-cgyle.changes > \
+		dist/python-cgyle.changes
+	helper/update_changelog.py --file package/python-cgyle.changes >> \
+		dist/python-cgyle.changes
 	# update package version in spec file
 	cat package/python-cgyle-spec-template | sed -e s'@%%VERSION@${version}@' \
 		> dist/python-cgyle.spec
