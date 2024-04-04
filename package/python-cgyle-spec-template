@@ -14,60 +14,81 @@
 
 # Please submit bugfixes or comments via https://bugs.opensuse.org/
 #
+# If they aren't provided by a system installed macro, define them
+%{!?_defaultdocdir: %global _defaultdocdir %{_datadir}/doc}
+
+%if 0%{?suse_version} && 0%{?suse_version} < 1600
+%global __python3 /usr/bin/python3.11
+%global python3_pkgversion 311
+%else
+%{!?__python3: %global __python3 /usr/bin/python3}
+%{!?python3_pkgversion:%global python3_pkgversion 3}
+%endif
+
+%if %{undefined python3_sitelib}
+%global python3_sitelib %(%{__python3} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")
+%endif
+
+%global pygroup Development/Languages/Python
+%global sysgroup System/Management
+%global develsuffix devel
 
 Name:           python-cgyle
 Version:        %%VERSION
 Release:        0
 Summary:        Cgyle - container preload
 License:        GPL-3.0-or-later
-Group:          System/Management
+Url:            https://github.com/SUSE-Enceladus/cgyle
+Group:          %{pygroup}
 Source:         %{name}.tar.gz
 Source1:        %{name}-rpmlintrc
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
-BuildRequires:  python311-poetry-core >= 1.2.0
-BuildRequires:  python311-build
-BuildRequires:  python311-installer
-BuildRequires:  python311-wheel
-BuildRequires:  python311-docopt >= 0.6.2
-BuildRequires:  python311-requests
-BuildRequires:  python311-setuptools
-BuildRequires:  python311-PyYAML
-BuildRequires:  python311-pip
-BuildRequires:  python-rpm-macros
-Requires:       python311
-Requires:       python311-docopt
-Requires:       python311-requests
-Requires:       python311-setuptools
-Requires:       python311-PyYAML
-Requires:       skopeo
-Requires:       podman
-BuildArch:      noarch
+BuildRequires:  python%{python3_pkgversion}-%{develsuffix} >= 3.9
+BuildRequires:  python%{python3_pkgversion}-build
+BuildRequires:  python%{python3_pkgversion}-installer
+BuildRequires:  python%{python3_pkgversion}-poetry-core >= 1.2.0
+BuildRequires:  python%{python3_pkgversion}-wheel
+BuildRequires:  python%{python3_pkgversion}-docopt >= 0.6.2
+BuildRequires:  python%{python3_pkgversion}-requests
+BuildRequires:  python%{python3_pkgversion}-setuptools
 
 %description
+Tooling for the pubcloud team. Allows to pre-populate
+containers in a distribution registry
+
+# python3xx-cgyle
+%package -n python%{python3_pkgversion}-cgyle
+Summary:        Cgyle - container preload
+Group:          %{pygroup}
+Requires:       python%{python3_pkgversion} >= 3.9
+Requires:       python%{python3_pkgversion}-docopt
+Requires:       python%{python3_pkgversion}-requests
+Requires:       python%{python3_pkgversion}-setuptools
+Requires:       python%{python3_pkgversion}-PyYAML
+Requires:       skopeo
+Requires:       podman
+
+%description -n python%{python3_pkgversion}-cgyle
 Tooling for the pubcloud team. Allows to pre-populate
 containers in a distribution registry
 
 %prep
 %autosetup -n cgyle-%{version}
 
-# Temporarily switch things back to docopt for everything but Fedora 41+
+# Temporarily switch things back to docopt (docopt-ng has not yet landed)
 # FIXME: Drop this hack as soon as we can...
-%if ! (0%{?fedora} >= 41 || 0%{?rhel} >= 10)
 sed -e 's/docopt-ng.*/docopt = ">=0.6.2"/' -i pyproject.toml
-%endif
 
 # Build application wheel
-%python311_pyproject_wheel
-#%{__python3} -m build --no-isolation --wheel
+%{__python3} -m build --no-isolation --wheel
+
+%build
 
 %install
-%python311_pyproject_install
-#%{__python3} -m installer --destdir %{buildroot} %{?is_deb:--no-compile-bytecode} dist/*.whl
+%{__python3} -m installer --destdir %{buildroot} %{?is_deb:--no-compile-bytecode} dist/*.whl
 
-%files
-%defattr(-,root,root,-)
-%dir %{python311_sitelib}/cgyle
-%{python311_sitelib}/*
-%{_bindir}/*
+%files -n python%{python3_pkgversion}-cgyle
+%{python3_sitelib}/cgyle*
+%{_bindir}/cgyle
 
 %changelog
