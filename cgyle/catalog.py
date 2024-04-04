@@ -16,6 +16,8 @@
 # along with cgyle.  If not, see <http://www.gnu.org/licenses/>
 #
 import os
+import re
+import yaml
 import subprocess
 from typing import (
     List, Dict
@@ -25,7 +27,8 @@ from cgyle.response import Response
 from cgyle.exceptions import (
     CgyleCatalogError,
     CgyleCommandError,
-    CgylePodmanError
+    CgylePodmanError,
+    CgyleFilterExpressionError
 )
 
 
@@ -95,4 +98,35 @@ class Catalog:
             raise CgyleCommandError(
                 f'Failed to call podman search: {issue}'
             )
+        return result
+
+    def apply_filter(
+        self, catalog: List[str], rules: List[str]
+    ) -> List[str]:
+        result: List[str] = []
+        for entry in catalog:
+            for pattern in rules:
+                try:
+                    if re.match(pattern, entry):
+                        result.append(entry)
+                        break
+                except Exception as issue:
+                    raise CgyleFilterExpressionError(
+                        f'Invalid expression [{pattern}]: {issue}'
+                    )
+        return sorted(result)
+
+    def translate_policy(self, policy_file: str) -> List[str]:
+        result: List[str] = []
+        glob_regexp_map = {
+            '*': '[^/]+',
+            '**': '.+'
+        }
+        with open(policy_file) as policy:
+            policy_dict = yaml.safe_load(policy)
+            for category in policy_dict:
+                for pattern in policy_dict.get(category):
+                    pattern = pattern.replace('**', glob_regexp_map.get('**'))
+                    pattern = pattern.replace('*', glob_regexp_map.get('*'))
+                    result.append(f'^{pattern}$')
         return result
