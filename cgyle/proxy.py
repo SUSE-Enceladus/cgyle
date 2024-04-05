@@ -54,7 +54,8 @@ class DistributionProxy:
         server = server.replace('http://', '')
         server = server.replace('https://', '')
         tagname = f':{tag}' if tag else ''
-        null_dir = TemporaryDirectory()
+        Path('/tmp/cgyle').mkdir(parents=True, exist_ok=True)
+        null_dir = TemporaryDirectory(dir='/tmp/cgyle')
 
         if store_oci:
             store_oci = f'{store_oci}/{self.container}'
