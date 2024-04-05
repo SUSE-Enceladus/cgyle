@@ -1,5 +1,6 @@
+import io
 from unittest.mock import (
-    patch, Mock
+    patch, Mock, MagicMock
 )
 from pytest import (
     raises, fixture
@@ -20,47 +21,65 @@ class TestDistributionProxy:
         self.setup()
 
     @patch('cgyle.proxy.subprocess.Popen')
-    @patch('cgyle.proxy.TemporaryDirectory')
-    def test_update_cache_raises(self, mock_TemporaryDirectory, mock_Popen):
+    @patch('uuid.uuid4')
+    @patch('shutil.rmtree')
+    @patch('os.unlink')
+    @patch('cgyle.proxy.Path')
+    def test_update_cache_raises(
+        self, mock_Path, mock_os_unlink, mock_rmtree, mock_uuid, mock_Popen
+    ):
         mock_Popen.side_effect = Exception
         with raises(CgyleCommandError):
             self.proxy.update_cache()
 
     @patch('cgyle.proxy.subprocess.Popen')
-    @patch('cgyle.proxy.TemporaryDirectory')
-    def test_update_cache(self, mock_TemporaryDirectory, mock_Popen):
+    @patch('uuid.uuid4')
+    @patch('shutil.rmtree')
+    @patch('os.unlink')
+    @patch('cgyle.proxy.Path')
+    def test_update_cache(
+        self, mock_Path, mock_os_unlink, mock_rmtree, mock_uuid, mock_Popen
+    ):
         skopeo = Mock()
-        skopeo.communicate.return_value = ('output', 'error')
+        skopeo.returncode = 0
         mock_Popen.return_value = skopeo
-        self.proxy.update_cache(store_oci='some_dir')
-        mock_Popen.assert_called_once_with(
-            [
-                'skopeo', 'sync', '--all', '--scoped',
-                '--src-tls-verify=true', '--src', 'docker', '--dest', 'dir',
-                'server/container', 'some_dir/container'
-            ], stdout=-1, stderr=-1
-        )
-        skopeo.communicate.assert_called_once_with()
+        with patch('builtins.open', create=True) as mock_open:
+            mock_open.return_value = MagicMock(spec=io.IOBase)
+            file_handle = mock_open.return_value.__enter__.return_value
+            self.proxy.update_cache(store_oci='some_dir')
+            mock_Popen.assert_called_once_with(
+                [
+                    'skopeo', 'sync', '--all', '--scoped',
+                    '--src-tls-verify=true', '--src', 'docker', '--dest', 'dir',
+                    'server/container', 'some_dir/container'
+                ], stdout=file_handle, stderr=file_handle
+            )
+            skopeo.communicate.assert_called_once_with()
 
     @patch('cgyle.proxy.subprocess.Popen')
-    @patch('cgyle.proxy.TemporaryDirectory')
+    @patch('uuid.uuid4')
+    @patch('shutil.rmtree')
+    @patch('os.unlink')
+    @patch('cgyle.proxy.Path')
     def test_update_cache_null_output(
-        self, mock_TemporaryDirectory, mock_Popen
+        self, mock_Path, mock_os_unlink, mock_rmtree, mock_uuid, mock_Popen
     ):
-        tmpdir = Mock()
-        mock_TemporaryDirectory.return_value = tmpdir
+        mock_uuid.return_value = 'uuid'
         skopeo = Mock()
-        skopeo.communicate.return_value = ('output', 'error')
+        skopeo.returncode = 1
         mock_Popen.return_value = skopeo
-        self.proxy.update_cache()
-        mock_Popen.assert_called_once_with(
-            [
-                'skopeo', 'sync', '--all', '--scoped',
-                '--src-tls-verify=true', '--src', 'docker', '--dest', 'dir',
-                'server/container', tmpdir.name
-            ], stdout=-1, stderr=-1
-        )
-        skopeo.communicate.assert_called_once_with()
+        with patch('builtins.open', create=True) as mock_open:
+            mock_open.return_value = MagicMock(spec=io.IOBase)
+            file_handle = mock_open.return_value.__enter__.return_value
+            self.proxy.update_cache()
+            mock_Popen.assert_called_once_with(
+                [
+                    'skopeo', 'sync', '--all', '--scoped',
+                    '--src-tls-verify=true', '--src', 'docker', '--dest', 'dir',
+                    'server/container', '/tmp/cgyle/uuid'
+                ], stdout=file_handle, stderr=file_handle
+            )
+            skopeo.communicate.assert_called_once_with()
 
     def test_get_pid(self):
         assert self.proxy.get_pid() == '0'
@@ -68,8 +87,9 @@ class TestDistributionProxy:
     @patch('cgyle.proxy.Catalog')
     @patch('cgyle.proxy.subprocess.Popen')
     @patch('cgyle.proxy.Path')
+    @patch('cgyle.proxy.NamedTemporaryFile')
     def test_create_local_distribution_instance_raises(
-        self, mock_Path, mock_Popen, mock_Catalog
+        self, mock_NamedTemporaryFile, mock_Path, mock_Popen, mock_Catalog
     ):
         podman_create = Mock()
         podman_create.communicate.return_value = (b'output', b'error')
@@ -96,8 +116,10 @@ class TestDistributionProxy:
     @patch('cgyle.proxy.Catalog')
     @patch('cgyle.proxy.subprocess.Popen')
     @patch('cgyle.proxy.Path')
+    @patch('cgyle.proxy.NamedTemporaryFile')
     def test_create_local_distribution_instance_connection_error(
-        self, mock_Path, mock_Popen, mock_Catalog, mock_time
+        self, mock_NamedTemporaryFile, mock_Path, mock_Popen,
+        mock_Catalog, mock_time
     ):
         podman_create = Mock()
         podman_create.communicate.return_value = (b'output', b'')

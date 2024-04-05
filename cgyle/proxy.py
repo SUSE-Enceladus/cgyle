@@ -26,7 +26,8 @@ import subprocess
 from typing import Optional
 from cgyle.catalog import Catalog
 from cgyle.exceptions import CgyleCommandError
-from tempfile import TemporaryDirectory
+import uuid
+import shutil
 
 
 class DistributionProxy:
@@ -55,11 +56,11 @@ class DistributionProxy:
         server = server.replace('https://', '')
         tagname = f':{tag}' if tag else ''
         Path('/tmp/cgyle').mkdir(parents=True, exist_ok=True)
-        null_dir = TemporaryDirectory(dir='/tmp/cgyle')
-
         if store_oci:
-            store_oci = f'{store_oci}/{self.container}'
-            Path(store_oci).mkdir(parents=True, exist_ok=True)
+            store_oci_dir = f'{store_oci}/{self.container}'
+        else:
+            store_oci_dir = f'/tmp/cgyle/{uuid.uuid4()}'
+        Path(store_oci).mkdir(parents=True, exist_ok=True)
 
         call_args = [
             'skopeo', 'sync', '--all', '--scoped',
@@ -67,26 +68,30 @@ class DistributionProxy:
             '--src', 'docker',
             '--dest', 'dir',
             f'{server}/{self.container}{tagname}',
-            store_oci or null_dir.name
+            store_oci_dir
         ]
         try:
-            self.skopeo = subprocess.Popen(
-                call_args,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-            self.pid = self.skopeo.pid
-            logging.info(
-                '[{}]: Update Container: {}@{}'.format(
-                    self.pid, self.container, server
+            with open(f'{store_oci_dir}.log', 'w') as clog:
+                self.skopeo = subprocess.Popen(
+                    call_args, stdout=clog, stderr=clog
                 )
-            )
-            output, error = self.skopeo.communicate()
-            if error and self.skopeo.returncode != 0:
-                logging.error(f'[{self.pid}]: [E] - {error!r}')
-            if output:
-                logging.info(f'[{self.pid}]: [OK] - {output!r}')
-            logging.info(f'[{self.pid}]: [Done]')
+                self.pid = self.skopeo.pid
+                logging.info(
+                    '[{}]: Update Container: {}@{}'.format(
+                        self.pid, self.container, server
+                    )
+                )
+                self.skopeo.communicate()
+                shutil.rmtree(store_oci_dir)
+                if self.skopeo.returncode != 0:
+                    logging.error(
+                        '[{}]: [E] - see for details: {}.log'.format(
+                            self.pid, store_oci_dir
+                        )
+                    )
+                else:
+                    os.unlink(f'{store_oci_dir}.log')
+                logging.info(f'[{self.pid}]: [Done]')
         except Exception as issue:
             raise CgyleCommandError(
                 'Failed to update cache for: {}: {}'.format(
@@ -139,7 +144,7 @@ class DistributionProxy:
                 stderr=subprocess.PIPE
             )
             output, error = podman_create.communicate()
-            if error:
+            if error and podman_create.returncode != 0:
                 raise CgyleCommandError(
                     f'Failed to create distribution instance: {error!r}'
                 )
