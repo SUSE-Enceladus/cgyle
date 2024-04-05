@@ -145,7 +145,6 @@ class Cli:
                     else:
                         request_count += 1
                         while request_count >= self.max_requests:
-                            stack.pop_all().close()
                             request_count = self._get_running_requests()
                             if request_count >= self.max_requests:
                                 time.sleep(self.wait_timeout)
