@@ -30,7 +30,7 @@ class TestDistributionProxy:
     ):
         mock_Popen.side_effect = Exception
         with raises(CgyleCommandError):
-            self.proxy.update_cache()
+            self.proxy.update_cache(tags=['latest'])
 
     @patch('cgyle.proxy.subprocess.Popen')
     @patch('uuid.uuid4')
@@ -46,12 +46,12 @@ class TestDistributionProxy:
         with patch('builtins.open', create=True) as mock_open:
             mock_open.return_value = MagicMock(spec=io.IOBase)
             file_handle = mock_open.return_value.__enter__.return_value
-            self.proxy.update_cache(store_oci='some_dir')
+            self.proxy.update_cache(store_oci='some_dir', tags=['latest'])
             mock_Popen.assert_called_once_with(
                 [
-                    'skopeo', 'sync', '--all', '--scoped',
-                    '--src-tls-verify=true', '--src', 'docker', '--dest', 'dir',
-                    'server/container', 'some_dir/container'
+                    'skopeo', 'copy', '--all', '--src-tls-verify=true',
+                    'docker://server/container:latest',
+                    'oci-archive:some_dir/container-latest.oci.tar:latest'
                 ], stdout=file_handle, stderr=file_handle
             )
             skopeo.communicate.assert_called_once_with()
@@ -71,12 +71,12 @@ class TestDistributionProxy:
         with patch('builtins.open', create=True) as mock_open:
             mock_open.return_value = MagicMock(spec=io.IOBase)
             file_handle = mock_open.return_value.__enter__.return_value
-            self.proxy.update_cache()
+            self.proxy.update_cache(tags=['latest'])
             mock_Popen.assert_called_once_with(
                 [
-                    'skopeo', 'sync', '--all', '--scoped',
-                    '--src-tls-verify=true', '--src', 'docker', '--dest', 'dir',
-                    'server/container', '/tmp/cgyle/uuid'
+                    'skopeo', 'copy', '--all', '--src-tls-verify=true',
+                    'docker://server/container:latest',
+                    'oci-archive:/dev/null:latest'
                 ], stdout=file_handle, stderr=file_handle
             )
             skopeo.communicate.assert_called_once_with()
@@ -169,8 +169,21 @@ class TestDistributionProxy:
                 ], stdout=-1, stderr=-1
             )
 
+    @patch('cgyle.proxy.subprocess.Popen')
+    def test_get_tags(self, mock_Popen):
+        skopeo = Mock()
+        skopeo.communicate.return_value = ['{"RepoTags": ["name"]}', '']
+        mock_Popen.return_value = skopeo
+        assert self.proxy.get_tags() == ['name']
+        mock_Popen.side_effect = Exception
+        assert self.proxy.get_tags() == []
+
     @patch('os.kill')
-    def test_context_manager_exit_keyboard_interrupt(self, mock_os_kill):
+    @patch('psutil.pid_exists')
+    def test_context_manager_exit_keyboard_interrupt(
+        self, mock_pid_exists, mock_os_kill
+    ):
+        mock_pid_exists.return_value = True
         with raises(KeyboardInterrupt):
             with DistributionProxy('server', 'container') as proxy:
                 proxy.pid = 1234

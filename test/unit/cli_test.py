@@ -57,6 +57,7 @@ class TestCli:
     ):
         pids = [2, 0, 2, 0]
         proxy = Mock()
+        proxy.get_tags.return_value = ['latest']
         mock_DistributionProxy.return_value = proxy
 
         def get_running_requests(*args):
@@ -75,7 +76,8 @@ class TestCli:
                 call(
                     proxy.create_local_distribution_instance.return_value,
                     'some-container'
-                )
+                ),
+                call('registry.opensuse.org', 'some-container')
             ]
             proxy.create_local_distribution_instance.assert_called_once_with(
                 data_dir='local://distribution:some',
@@ -83,7 +85,7 @@ class TestCli:
                 proxy_creds=''
             )
             proxy.update_cache.assert_called_once_with(
-                tls_verify=False, store_oci=''
+                tls_verify=False, store_oci='', tags=['latest']
             )
 
     def test_get_running_requests(self):

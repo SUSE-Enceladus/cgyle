@@ -156,7 +156,10 @@ class Cli:
                             target=proxy.update_cache,
                             kwargs={
                                 'tls_verify': self.tls_proxy,
-                                'store_oci': self.store_oci
+                                'store_oci': self.store_oci,
+                                'tags': DistributionProxy(
+                                    self.from_registry, container
+                                ).get_tags()
                             }
                         )
                         proxy_thread.start()
