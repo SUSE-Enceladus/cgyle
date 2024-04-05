@@ -20,23 +20,44 @@ class TestDistributionProxy:
         self.setup()
 
     @patch('cgyle.proxy.subprocess.Popen')
-    def test_update_cache_raises(self, mock_Popen):
+    @patch('shutil.rmtree')
+    def test_update_cache_raises(self, mock_rmtree, mock_Popen):
         mock_Popen.side_effect = Exception
         with raises(CgyleCommandError):
             self.proxy.update_cache()
 
     @patch('cgyle.proxy.subprocess.Popen')
-    def test_update_cache(self, mock_Popen):
+    @patch('shutil.rmtree')
+    def test_update_cache(self, mock_rmtree, mock_Popen):
         skopeo = Mock()
         skopeo.communicate.return_value = ('output', 'error')
         mock_Popen.return_value = skopeo
-        self.proxy.update_cache(store_oci_archive='some_dir')
+        self.proxy.update_cache(store_oci='some_dir')
         mock_Popen.assert_called_once_with(
             [
-                'skopeo', 'copy',
-                '--src-tls-verify=true',
-                'docker://server/container',
-                'oci-archive:some_dir/container.oci.tar'
+                'skopeo', 'sync', '--all', '--scoped',
+                '--src-tls-verify=true', '--src', 'docker', '--dest', 'dir',
+                'server/container', 'some_dir/container'
+            ], stdout=-1, stderr=-1
+        )
+        skopeo.communicate.assert_called_once_with()
+
+    @patch('cgyle.proxy.subprocess.Popen')
+    @patch('shutil.rmtree')
+    @patch('os.path.exists')
+    def test_update_cache_null_output(
+        self, mock_os_path_exists, mock_rmtree, mock_Popen
+    ):
+        mock_os_path_exists.return_value = True
+        skopeo = Mock()
+        skopeo.communicate.return_value = ('output', 'error')
+        mock_Popen.return_value = skopeo
+        self.proxy.update_cache()
+        mock_Popen.assert_called_once_with(
+            [
+                'skopeo', 'sync', '--all', '--scoped',
+                '--src-tls-verify=true', '--src', 'docker', '--dest', 'dir',
+                'server/container', '/var/tmp/to_delete'
             ], stdout=-1, stderr=-1
         )
         skopeo.communicate.assert_called_once_with()

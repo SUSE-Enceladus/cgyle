@@ -83,7 +83,7 @@ class TestCli:
                 proxy_creds=''
             )
             proxy.update_cache.assert_called_once_with(
-                tls_verify=False, store_oci_archive=''
+                tls_verify=False, store_oci=''
             )
 
     def test_get_running_requests(self):
