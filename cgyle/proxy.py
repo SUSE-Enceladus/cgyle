@@ -17,6 +17,7 @@
 #
 import os
 import yaml
+import shutil
 import time
 from pathlib import Path
 from textwrap import dedent
@@ -44,8 +45,7 @@ class DistributionProxy:
         return self
 
     def update_cache(
-        self, tag: str = '', tls_verify: bool = True,
-        store_oci_archive: str = ''
+        self, tag: str = '', tls_verify: bool = True, store_oci: str = ''
     ) -> None:
         """
         Trigger a cache update of the container
@@ -54,19 +54,21 @@ class DistributionProxy:
         server = server.replace('http://', '')
         server = server.replace('https://', '')
         tagname = f':{tag}' if tag else ''
+        null_dir = '/var/tmp/to_delete'
 
-        archive_name = '/dev/null'
-        if store_oci_archive:
-            Path(store_oci_archive).mkdir(parents=True, exist_ok=True)
-            archive_name = '{}/{}.oci.tar'.format(
-                store_oci_archive, os.path.basename(self.container)
-            )
+        if store_oci:
+            store_oci = f'{store_oci}/{self.container}'
+            Path(store_oci).mkdir(parents=True, exist_ok=True)
+        elif os.path.exists(null_dir):
+            shutil.rmtree(null_dir)
 
         call_args = [
-            'skopeo', 'copy',
+            'skopeo', 'sync', '--all', '--scoped',
             f'--src-tls-verify={format(tls_verify).lower()}',
-            f'docker://{server}/{self.container}{tagname}',
-            f'oci-archive:{archive_name}{tagname}'
+            '--src', 'docker',
+            '--dest', 'dir',
+            f'{server}/{self.container}{tagname}',
+            store_oci or null_dir
         ]
         try:
             self.skopeo = subprocess.Popen(
@@ -81,7 +83,9 @@ class DistributionProxy:
                 )
             )
             output, error = self.skopeo.communicate()
-            if error:
+            if not store_oci:
+                shutil.rmtree(null_dir)
+            if error and self.skopeo.returncode != 0:
                 logging.error(f'[{self.pid}]: [E] - {error!r}')
             if output:
                 logging.info(f'[{self.pid}]: [OK] - {output!r}')
