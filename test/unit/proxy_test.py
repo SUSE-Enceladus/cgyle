@@ -20,15 +20,15 @@ class TestDistributionProxy:
         self.setup()
 
     @patch('cgyle.proxy.subprocess.Popen')
-    @patch('shutil.rmtree')
-    def test_update_cache_raises(self, mock_rmtree, mock_Popen):
+    @patch('cgyle.proxy.TemporaryDirectory')
+    def test_update_cache_raises(self, mock_TemporaryDirectory, mock_Popen):
         mock_Popen.side_effect = Exception
         with raises(CgyleCommandError):
             self.proxy.update_cache()
 
     @patch('cgyle.proxy.subprocess.Popen')
-    @patch('shutil.rmtree')
-    def test_update_cache(self, mock_rmtree, mock_Popen):
+    @patch('cgyle.proxy.TemporaryDirectory')
+    def test_update_cache(self, mock_TemporaryDirectory, mock_Popen):
         skopeo = Mock()
         skopeo.communicate.return_value = ('output', 'error')
         mock_Popen.return_value = skopeo
@@ -43,12 +43,12 @@ class TestDistributionProxy:
         skopeo.communicate.assert_called_once_with()
 
     @patch('cgyle.proxy.subprocess.Popen')
-    @patch('shutil.rmtree')
-    @patch('os.path.exists')
+    @patch('cgyle.proxy.TemporaryDirectory')
     def test_update_cache_null_output(
-        self, mock_os_path_exists, mock_rmtree, mock_Popen
+        self, mock_TemporaryDirectory, mock_Popen
     ):
-        mock_os_path_exists.return_value = True
+        tmpdir = Mock()
+        mock_TemporaryDirectory.return_value = tmpdir
         skopeo = Mock()
         skopeo.communicate.return_value = ('output', 'error')
         mock_Popen.return_value = skopeo
@@ -57,7 +57,7 @@ class TestDistributionProxy:
             [
                 'skopeo', 'sync', '--all', '--scoped',
                 '--src-tls-verify=true', '--src', 'docker', '--dest', 'dir',
-                'server/container', '/var/tmp/to_delete'
+                'server/container', tmpdir.name
             ], stdout=-1, stderr=-1
         )
         skopeo.communicate.assert_called_once_with()

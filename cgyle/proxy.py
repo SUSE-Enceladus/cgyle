@@ -17,7 +17,6 @@
 #
 import os
 import yaml
-import shutil
 import time
 from pathlib import Path
 from textwrap import dedent
@@ -27,6 +26,7 @@ import subprocess
 from typing import Optional
 from cgyle.catalog import Catalog
 from cgyle.exceptions import CgyleCommandError
+from tempfile import TemporaryDirectory
 
 
 class DistributionProxy:
@@ -54,13 +54,11 @@ class DistributionProxy:
         server = server.replace('http://', '')
         server = server.replace('https://', '')
         tagname = f':{tag}' if tag else ''
-        null_dir = '/var/tmp/to_delete'
+        null_dir = TemporaryDirectory()
 
         if store_oci:
             store_oci = f'{store_oci}/{self.container}'
             Path(store_oci).mkdir(parents=True, exist_ok=True)
-        elif os.path.exists(null_dir):
-            shutil.rmtree(null_dir)
 
         call_args = [
             'skopeo', 'sync', '--all', '--scoped',
@@ -68,7 +66,7 @@ class DistributionProxy:
             '--src', 'docker',
             '--dest', 'dir',
             f'{server}/{self.container}{tagname}',
-            store_oci or null_dir
+            store_oci or null_dir.name
         ]
         try:
             self.skopeo = subprocess.Popen(
@@ -83,8 +81,6 @@ class DistributionProxy:
                 )
             )
             output, error = self.skopeo.communicate()
-            if not store_oci:
-                shutil.rmtree(null_dir)
             if error and self.skopeo.returncode != 0:
                 logging.error(f'[{self.pid}]: [E] - {error!r}')
             if output:
