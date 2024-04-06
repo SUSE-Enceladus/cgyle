@@ -21,24 +21,20 @@ class TestDistributionProxy:
         self.setup()
 
     @patch('cgyle.proxy.subprocess.Popen')
-    @patch('uuid.uuid4')
-    @patch('shutil.rmtree')
     @patch('os.unlink')
     @patch('cgyle.proxy.Path')
     def test_update_cache_raises(
-        self, mock_Path, mock_os_unlink, mock_rmtree, mock_uuid, mock_Popen
+        self, mock_Path, mock_os_unlink, mock_Popen
     ):
         mock_Popen.side_effect = Exception
         with raises(CgyleCommandError):
             self.proxy.update_cache(tags=['latest'])
 
     @patch('cgyle.proxy.subprocess.Popen')
-    @patch('uuid.uuid4')
-    @patch('shutil.rmtree')
     @patch('os.unlink')
     @patch('cgyle.proxy.Path')
     def test_update_cache(
-        self, mock_Path, mock_os_unlink, mock_rmtree, mock_uuid, mock_Popen
+        self, mock_Path, mock_os_unlink, mock_Popen
     ):
         skopeo = Mock()
         skopeo.returncode = 0
@@ -57,14 +53,11 @@ class TestDistributionProxy:
             skopeo.communicate.assert_called_once_with()
 
     @patch('cgyle.proxy.subprocess.Popen')
-    @patch('uuid.uuid4')
-    @patch('shutil.rmtree')
     @patch('os.unlink')
     @patch('cgyle.proxy.Path')
     def test_update_cache_null_output(
-        self, mock_Path, mock_os_unlink, mock_rmtree, mock_uuid, mock_Popen
+        self, mock_Path, mock_os_unlink, mock_Popen
     ):
-        mock_uuid.return_value = 'uuid'
         skopeo = Mock()
         skopeo.returncode = 1
         mock_Popen.return_value = skopeo
@@ -180,13 +173,16 @@ class TestDistributionProxy:
 
     @patch('os.kill')
     @patch('psutil.pid_exists')
+    @patch('cgyle.proxy.Path')
     def test_context_manager_exit_keyboard_interrupt(
-        self, mock_pid_exists, mock_os_kill
+        self, mock_Path, mock_pid_exists, mock_os_kill
     ):
         mock_pid_exists.return_value = True
         with raises(KeyboardInterrupt):
             with DistributionProxy('server', 'container') as proxy:
                 proxy.pid = 1234
+                proxy.shutdown = True
+                proxy.update_cache(tags=['latest'])
                 raise KeyboardInterrupt
             mock_os_kill.assert_called_once_with()
 

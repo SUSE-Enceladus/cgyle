@@ -42,6 +42,7 @@ class DistributionProxy:
         self.container = container
         self.skopeo: Optional[subprocess.Popen[bytes]] = None
         self.registry_name = ''
+        self.shutdown = False
         self.pid = 0
 
     def __enter__(self):
@@ -78,6 +79,8 @@ class DistributionProxy:
         count = 0
         for tagname in tags:
             count += 1
+            if self.shutdown:
+                break
             if store_oci:
                 archive_name = '{}/{}-{}.oci.tar'.format(
                     store_oci, self.container, tagname
@@ -245,5 +248,8 @@ class DistributionProxy:
                 stderr=subprocess.PIPE
             ).communicate()
         if exc_type == KeyboardInterrupt:
+            # kill current skopeo call if present
             if self.pid > 0 and psutil.pid_exists(self.pid):
                 os.kill(self.pid, 15)
+            # set flag to close thread
+            self.shutdown = True
