@@ -75,7 +75,9 @@ class DistributionProxy:
         Path('/tmp/cgyle').mkdir(parents=True, exist_ok=True)
         if store_oci:
             Path(store_oci).mkdir(parents=True, exist_ok=True)
+        count = 0
         for tagname in tags:
+            count += 1
             if store_oci:
                 archive_name = '{}/{}-{}.oci.tar'.format(
                     store_oci, self.container, tagname
@@ -104,8 +106,9 @@ class DistributionProxy:
                     )
                     self.pid = self.skopeo.pid
                     logging.info(
-                        '[{}]: Update Container ({} tags): {}:{}@{}'.format(
-                            self.pid, len(tags), self.container, tagname, server
+                        '[{}]: Fetch Container ({}/{} tags): {}:{}@{}'.format(
+                            self.pid, count, len(tags),
+                            self.container, tagname, server
                         )
                     )
                     self.skopeo.communicate()
