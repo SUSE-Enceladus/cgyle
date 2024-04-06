@@ -17,7 +17,9 @@
 #
 import os
 import yaml
+import json
 import time
+import psutil
 from pathlib import Path
 from textwrap import dedent
 from tempfile import NamedTemporaryFile
@@ -26,8 +28,7 @@ import subprocess
 from typing import Optional
 from cgyle.catalog import Catalog
 from cgyle.exceptions import CgyleCommandError
-import uuid
-import shutil
+from typing import List
 
 
 class DistributionProxy:
@@ -36,7 +37,8 @@ class DistributionProxy:
     configured as proxy
     """
     def __init__(self, server: str, container: str = '') -> None:
-        self.server = server
+        self.server = server.replace('http://', '')
+        self.server = self.server.replace('https://', '')
         self.container = container
         self.skopeo: Optional[subprocess.Popen[bytes]] = None
         self.registry_name = ''
@@ -45,59 +47,83 @@ class DistributionProxy:
     def __enter__(self):
         return self
 
+    def get_tags(self, tls_verify: bool = True) -> List[str]:
+        call_args = [
+            'skopeo', 'inspect',
+            f'--tls-verify={format(tls_verify).lower()}',
+            f'docker://{self.server}/{self.container}'
+        ]
+        try:
+            self.skopeo = subprocess.Popen(
+                call_args,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            output, error = self.skopeo.communicate()
+            config = json.loads(output)
+            return config.get('RepoTags') or []
+        except Exception:
+            return []
+
     def update_cache(
-        self, tag: str = '', tls_verify: bool = True, store_oci: str = ''
+        self, tags: List[str], tls_verify: bool = True, store_oci: str = ''
     ) -> None:
         """
         Trigger a cache update of the container
         """
         server = self.server
-        server = server.replace('http://', '')
-        server = server.replace('https://', '')
-        tagname = f':{tag}' if tag else ''
         Path('/tmp/cgyle').mkdir(parents=True, exist_ok=True)
         if store_oci:
-            store_oci_dir = f'{store_oci}/{self.container}'
-        else:
-            store_oci_dir = f'/tmp/cgyle/{uuid.uuid4()}'
-        Path(store_oci).mkdir(parents=True, exist_ok=True)
-
-        call_args = [
-            'skopeo', 'sync', '--all', '--scoped',
-            f'--src-tls-verify={format(tls_verify).lower()}',
-            '--src', 'docker',
-            '--dest', 'dir',
-            f'{server}/{self.container}{tagname}',
-            store_oci_dir
-        ]
-        try:
-            with open(f'{store_oci_dir}.log', 'w') as clog:
-                self.skopeo = subprocess.Popen(
-                    call_args, stdout=clog, stderr=clog
+            Path(store_oci).mkdir(parents=True, exist_ok=True)
+        for tagname in tags:
+            if store_oci:
+                archive_name = '{}/{}-{}.oci.tar'.format(
+                    store_oci, self.container, tagname
                 )
-                self.pid = self.skopeo.pid
-                logging.info(
-                    '[{}]: Update Container: {}@{}'.format(
-                        self.pid, self.container, server
+                log_name = '{}/{}-{}.log'.format(
+                    store_oci, self.container, tagname
+                )
+            else:
+                archive_name = '/dev/null'
+                log_name = '/tmp/cgyle/{}-{}.log'.format(
+                    self.container, tagname
+                )
+            Path(os.path.dirname(log_name)).mkdir(
+                parents=True, exist_ok=True
+            )
+            call_args = [
+                'skopeo', 'copy', '--all',
+                f'--src-tls-verify={format(tls_verify).lower()}',
+                f'docker://{server}/{self.container}:{tagname}',
+                f'oci-archive:{archive_name}:{tagname}'
+            ]
+            try:
+                with open(log_name, 'a') as clog:
+                    self.skopeo = subprocess.Popen(
+                        call_args, stdout=clog, stderr=clog
                     )
-                )
-                self.skopeo.communicate()
-                shutil.rmtree(store_oci_dir)
-                if self.skopeo.returncode != 0:
-                    logging.error(
-                        '[{}]: [E] - see for details: {}.log'.format(
-                            self.pid, store_oci_dir
+                    self.pid = self.skopeo.pid
+                    logging.info(
+                        '[{}]: Update Container ({} tags): {}:{}@{}'.format(
+                            self.pid, len(tags), self.container, tagname, server
                         )
                     )
-                else:
-                    os.unlink(f'{store_oci_dir}.log')
-                logging.info(f'[{self.pid}]: [Done]')
-        except Exception as issue:
-            raise CgyleCommandError(
-                'Failed to update cache for: {}: {}'.format(
-                    self.container, issue
+                    self.skopeo.communicate()
+                    if self.skopeo.returncode != 0:
+                        logging.error(
+                            '[{}]: [E] - for details see: {}'.format(
+                                self.pid, log_name
+                            )
+                        )
+                    else:
+                        os.unlink(log_name)
+                    logging.info(f'[{self.pid}]: [Done]')
+            except Exception as issue:
+                raise CgyleCommandError(
+                    'Failed to update cache for: {}: {}'.format(
+                        self.container, issue
+                    )
                 )
-            )
 
     def get_pid(self) -> str:
         return format(self.pid)
@@ -216,5 +242,5 @@ class DistributionProxy:
                 stderr=subprocess.PIPE
             ).communicate()
         if exc_type == KeyboardInterrupt:
-            if self.pid > 0:
+            if self.pid > 0 and psutil.pid_exists(self.pid):
                 os.kill(self.pid, 15)
