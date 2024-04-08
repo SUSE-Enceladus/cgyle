@@ -27,8 +27,12 @@ import logging
 import subprocess
 from typing import Optional
 from cgyle.catalog import Catalog
-from cgyle.exceptions import CgyleCommandError
 from typing import List
+
+from cgyle.exceptions import (
+    CgyleCommandError,
+    CgyleMetadataError
+)
 
 
 class DistributionProxy:
@@ -48,7 +52,8 @@ class DistributionProxy:
     def __enter__(self):
         return self
 
-    def get_tags(self, tls_verify: bool = True) -> List[str]:
+    def get_meta(self, tls_verify: bool = True) -> dict:
+        result = {}
         call_args = [
             'skopeo', 'inspect',
             f'--tls-verify={format(tls_verify).lower()}',
@@ -61,10 +66,10 @@ class DistributionProxy:
                 stderr=subprocess.PIPE
             )
             output, error = self.skopeo.communicate()
-            config = json.loads(output)
-            return config.get('RepoTags') or []
-        except Exception:
-            return []
+            return json.loads(output)
+        except Exception as issue:
+            pass
+        return result
 
     def update_cache(
         self, tags: List[str], tls_verify: bool = True, store_oci: str = ''

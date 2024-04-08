@@ -62,3 +62,9 @@ class CgylePodmanError(CgyleError):
     """
     Exception raised if podman call returns errors
     """
+
+
+class CgyleMetadataError(CgyleError):
+    """
+    Exception raised if there is no container metadata
+    """

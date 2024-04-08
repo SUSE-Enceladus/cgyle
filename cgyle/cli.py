@@ -140,8 +140,22 @@ class Cli:
                     if not self._filter_ok(container):
                         continue
                     count += 1
+                    meta = DistributionProxy(
+                        self.from_registry, container
+                    ).get_meta()
+                    if not meta:
+                        logging.warning(
+                            f'({count}) - {container}[no_meta]'
+                        )
+                        continue
                     if self.dryrun:
-                        logging.info(f'  ({count}) - {container}')
+                        size = 0
+                        tags = len(meta.get('RepoTags'))
+                        for layer in meta.get('LayersData'):
+                            size += layer.get('Size')
+                        logging.info(
+                            f'({count}) - {container}[{size}bytes@{tags}tags]'
+                        )
                     else:
                         request_count += 1
                         while request_count >= self.max_requests:
@@ -157,9 +171,7 @@ class Cli:
                             kwargs={
                                 'tls_verify': self.tls_proxy,
                                 'store_oci': self.store_oci,
-                                'tags': DistributionProxy(
-                                    self.from_registry, container
-                                ).get_tags()
+                                'tags': meta.get('RepoTags')
                             }
                         )
                         proxy_thread.start()
