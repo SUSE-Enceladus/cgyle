@@ -20,7 +20,7 @@ usage: cgyle -h | --help
        cgyle --updatecache=<proxy> --from=<registry>
            [--apply]
            [--filter=<expression>]
-           [--filter-policy=<policyfile>]
+           [--filter-policy=<policyfile>|(--filter-policy=<policyfile> --skip-policy-section=<name>...)]
            [--registry-creds=<user:pwd>]
            [--store-oci=<dir>]
            [--tls-verify-proxy=<BOOL>]
@@ -37,6 +37,10 @@ options:
     --filter-policy=<policyfile>
         Apply rules provided in the policyfile on the
         list of containers received from the registry
+
+    --skip-policy-section=<name>...
+        Skip the provided section name from the policyfile.
+        This option can be specified multiple times.
 
     --from=<registry>
         Registry location to read the catalog of containers
@@ -104,6 +108,8 @@ class Cli:
         self.cache = self.arguments['--updatecache']
         self.pattern = self.arguments['--filter']
         self.policy = self.arguments['--filter-policy']
+        self.policy_skip_sections: List[str] = \
+            self.arguments['--skip-policy-section']
         self.from_registry = self.arguments['--from']
         self.store_oci = self.arguments['--store-oci'] or ''
 
@@ -194,7 +200,9 @@ class Cli:
 
         if self.policy:
             result = catalog.apply_filter(
-                result, catalog.translate_policy(self.policy)
+                result, catalog.translate_policy(
+                    self.policy, self.policy_skip_sections
+                )
             )
 
         if self.pattern:
