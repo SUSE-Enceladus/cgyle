@@ -116,7 +116,9 @@ class Catalog:
                     )
         return sorted(result)
 
-    def translate_policy(self, policy_file: str) -> List[str]:
+    def translate_policy(
+        self, policy_file: str, skip_sections: List[str] = []
+    ) -> List[str]:
         result: List[str] = []
         glob_regexp_map = {
             '*': '[^/]+',
@@ -125,8 +127,13 @@ class Catalog:
         with open(policy_file) as policy:
             policy_dict = yaml.safe_load(policy)
             for category in policy_dict:
-                for pattern in policy_dict.get(category):
-                    pattern = pattern.replace('**', glob_regexp_map.get('**'))
-                    pattern = pattern.replace('*', glob_regexp_map.get('*'))
-                    result.append(f'^{pattern}$')
+                if category not in skip_sections:
+                    for pattern in policy_dict.get(category):
+                        pattern = pattern.replace(
+                            '**', glob_regexp_map.get('**')
+                        )
+                        pattern = pattern.replace(
+                            '*', glob_regexp_map.get('*')
+                        )
+                        result.append(f'^{pattern}$')
         return result

@@ -42,7 +42,7 @@ class TestCli:
             call(['some-container'], ['.*'])
         ]
         catalog.translate_policy.assert_called_once_with(
-            '../data/policy'
+            '../data/policy', []
         )
 
     @patch.object(Cli, '_get_catalog')
