@@ -3,10 +3,7 @@ from cgyle.cli import Cli
 from unittest.mock import (
     patch, Mock, call
 )
-from pytest import (
-    raises, fixture
-)
-from cgyle.exceptions import CgyleFilterExpressionError
+from pytest import fixture
 
 from .test_helper import argv_cgyle_tests
 
@@ -28,32 +25,41 @@ class TestCli:
         Cli()
         mock_update_cache.assert_called_once_with()
 
-    @patch.object(Cli, '_filter_ok')
-    @patch.object(Cli, '_get_catalog')
-    def test_update_cache_all_filtered(self, mock_get_catalog, mock_filter_ok):
-        mock_get_catalog.return_value = ['some-container']
-        mock_filter_ok.return_value = False
+    @patch('cgyle.cli.Catalog')
+    def test_update_cache_with_filter(self, mock_Catalog):
+        catalog = Mock()
+        catalog.get_catalog.return_value = ['some-container']
+        catalog.apply_filter.return_value = ['some-container']
+        catalog.translate_policy.return_value = []
+        mock_Catalog.return_value = catalog
+        self.cli.use_podman_search = False
+        self.cli.dryrun = True
+        self.cli.pattern = '.*'
+        self.cli.policy = '../data/policy'
         self.cli.update_cache()
-        mock_filter_ok.assert_called_once_with('some-container')
+        assert catalog.apply_filter.call_args_list == [
+            call(['some-container'], []),
+            call(['some-container'], ['.*'])
+        ]
+        catalog.translate_policy.assert_called_once_with(
+            '../data/policy'
+        )
 
-    @patch.object(Cli, '_filter_ok')
     @patch.object(Cli, '_get_catalog')
-    def test_update_cache_dry_run(self, mock_get_catalog, mock_filter_ok):
+    def test_update_cache_dry_run(self, mock_get_catalog):
         mock_get_catalog.return_value = ['some-container']
-        mock_filter_ok.return_value = True
         self.cli.dryrun = True
         with self._caplog.at_level(logging.INFO):
             self.cli.update_cache()
             assert 'some-container' in self._caplog.text
 
-    @patch.object(Cli, '_filter_ok')
     @patch.object(Cli, '_get_catalog')
     @patch.object(Cli, '_get_running_requests')
     @patch('cgyle.cli.DistributionProxy')
     @patch('time.sleep')
     def test_update_cache(
         self, mock_time_sleep, mock_DistributionProxy,
-        mock_get_running_requests, mock_get_catalog, mock_filter_ok
+        mock_get_running_requests, mock_get_catalog
     ):
         pids = [2, 0, 2, 0]
         proxy = Mock()
@@ -65,7 +71,6 @@ class TestCli:
 
         mock_get_running_requests.side_effect = get_running_requests
         mock_get_catalog.return_value = ['some-container']
-        mock_filter_ok.return_value = True
         self.cli.dryrun = False
         self.cli.local_distribution_cache = 'local://distribution:some'
         self.cli.max_requests = 1
@@ -113,14 +118,3 @@ class TestCli:
         catalog.get_catalog_podman_search.assert_called_once_with(
             'registry.opensuse.org', True, ''
         )
-
-    def test_filter_ok(self):
-        self.cli.pattern = '.*'
-        assert self.cli._filter_ok('data') is True
-        self.cli.pattern = 'xxx'
-        assert self.cli._filter_ok('data') is False
-        self.cli.pattern = '*'
-        with raises(CgyleFilterExpressionError):
-            self.cli._filter_ok('data')
-        self.cli.pattern = None
-        assert self.cli._filter_ok('data') is True

@@ -20,6 +20,7 @@ usage: cgyle -h | --help
        cgyle --updatecache=<proxy> --from=<registry>
            [--apply]
            [--filter=<expression>]
+           [--filter-policy=<policyfile>]
            [--registry-creds=<user:pwd>]
            [--store-oci=<dir>]
            [--tls-verify-proxy=<BOOL>]
@@ -32,6 +33,10 @@ options:
     --filter=<expression>
         Apply given regular expression on the list of
         containers received from the registry
+
+    --filter-policy=<policyfile>
+        Apply rules provided in the policyfile on the
+        list of containers received from the registry
 
     --from=<registry>
         Registry location to read the catalog of containers
@@ -57,7 +62,6 @@ options:
         distribution registry will be started as a proxy and
         its cache is stored below the given directory DIR
 """
-import re
 import time
 import threading
 import logging
@@ -70,8 +74,6 @@ from contextlib import ExitStack
 from cgyle.version import __version__
 from cgyle.proxy import DistributionProxy
 from cgyle.catalog import Catalog
-
-from cgyle.exceptions import CgyleFilterExpressionError
 
 logging.basicConfig(
     format='%(levelname)s:%(message)s',
@@ -101,6 +103,7 @@ class Cli:
         self.dryrun = not bool(self.arguments['--apply'])
         self.cache = self.arguments['--updatecache']
         self.pattern = self.arguments['--filter']
+        self.policy = self.arguments['--filter-policy']
         self.from_registry = self.arguments['--from']
         self.store_oci = self.arguments['--store-oci'] or ''
 
@@ -137,8 +140,6 @@ class Cli:
                 if self.dryrun:
                     logging.info(f'Proxy: [{self.cache}]:')
                 for container in self._get_catalog():
-                    if not self._filter_ok(container):
-                        continue
                     count += 1
                     if self.dryrun:
                         logging.info(f'  ({count}) - {container}')
@@ -184,22 +185,19 @@ class Cli:
     def _get_catalog(self) -> List[str]:
         catalog = Catalog()
         if self.use_podman_search:
-            return catalog.get_catalog_podman_search(
+            result = catalog.get_catalog_podman_search(
                 self.from_registry, self.tls_registry,
                 self.tls_registry_creds
             )
         else:
-            return catalog.get_catalog(self.from_registry)
+            result = catalog.get_catalog(self.from_registry)
 
-    def _filter_ok(self, data: str) -> bool:
+        if self.policy:
+            result = catalog.apply_filter(
+                result, catalog.translate_policy(self.policy)
+            )
+
         if self.pattern:
-            try:
-                if re.match(self.pattern, data):
-                    return True
-                else:
-                    return False
-            except Exception as issue:
-                raise CgyleFilterExpressionError(
-                    f'Invalid expression [{self.pattern}]: {issue}'
-                )
-        return True
+            result = catalog.apply_filter(result, [self.pattern])
+
+        return result

@@ -6,7 +6,8 @@ from cgyle.catalog import Catalog
 from cgyle.exceptions import (
     CgyleCatalogError,
     CgylePodmanError,
-    CgyleCommandError
+    CgyleCommandError,
+    CgyleFilterExpressionError
 )
 
 
@@ -65,3 +66,20 @@ class TestCatalog:
                 'registry.opensuse.org:/'
             ], stdout=-1, stderr=-1
         )
+
+    def test_apply_filter_raises(self):
+        with raises(CgyleFilterExpressionError):
+            self.catalog.apply_filter(['entry'], ['*'])
+
+    def test_apply_filter(self):
+        assert self.catalog.apply_filter(
+            ['suse/foo/bar', 'bcl/xxx'], [r'.*bcl.*']
+        ) == ['bcl/xxx']
+
+    def test_translate_policy(self):
+        assert self.catalog.translate_policy('../data/policy') == [
+            '^[^/]+$',
+            '^bci/.+$',
+            '^suse/[^/]+$',
+            '^foo/[^/]+/bar/.+$'
+        ]
