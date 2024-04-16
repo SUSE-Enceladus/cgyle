@@ -120,20 +120,12 @@ class Catalog:
         self, policy_file: str, skip_sections: List[str] = []
     ) -> List[str]:
         result: List[str] = []
-        glob_regexp_map = {
-            '*': '[^/]+',
-            '**': '.+'
-        }
         with open(policy_file) as policy:
             policy_dict = yaml.safe_load(policy)
             for category in policy_dict:
                 if category not in skip_sections:
                     for pattern in policy_dict.get(category):
-                        pattern = pattern.replace(
-                            '**', glob_regexp_map.get('**')
-                        )
-                        pattern = pattern.replace(
-                            '*', glob_regexp_map.get('*')
-                        )
+                        pattern = re.sub('(?<!\*)\*(?!\*)', '[^/]*', pattern)
+                        pattern = re.sub('\*\*', '.*', pattern)
                         result.append(f'^{pattern}$')
         return result

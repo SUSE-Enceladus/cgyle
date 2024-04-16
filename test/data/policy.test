@@ -1,0 +1,12 @@
+---
+test:
+  - "foo/*"
+  - "sles/**"
+  - "bar*"
+  - "sles"
+  - "foo/*"
+  - "sles/more**"
+  - "sles/more*/sles"
+  - "sles/*super/sles"
+  - "sles**things"
+  - "suse/manager/*-x86_64"

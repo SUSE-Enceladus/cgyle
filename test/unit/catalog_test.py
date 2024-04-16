@@ -76,10 +76,40 @@ class TestCatalog:
             ['suse/foo/bar', 'bcl/xxx'], [r'.*bcl.*']
         ) == ['bcl/xxx']
 
+    def test_apply_policy(self):
+        assert self.catalog.apply_filter(
+            [
+                'foo/bar/foobar',
+                'foo/bar',
+                'sles/more/things',
+                'sles/moresuper/sles',
+                'extra_repo',
+                'bar',
+                'bat',
+                'bar/foo',
+                'sles',
+                'suse/manager/proxy-aarch64',
+                'suse/manager/server-aarch64',
+                'suse/manager/proxy-ppc64le',
+                'suse/manager/server-ppc64le',
+                'suse/manager/proxy-x86_64',
+                'suse/manager/server-x86_64'
+            ],
+            self.catalog.translate_policy('../data/policy.test')
+        ) == [
+            'bar',
+            'foo/bar',
+            'sles',
+            'sles/more/things',
+            'sles/moresuper/sles',
+            'suse/manager/proxy-x86_64',
+            'suse/manager/server-x86_64'
+        ]
+
     def test_translate_policy(self):
         assert self.catalog.translate_policy('../data/policy') == [
-            '^[^/]+$',
-            '^bci/.+$',
-            '^suse/[^/]+$',
-            '^foo/[^/]+/bar/.+$'
+            '^[^/]*$',
+            '^bci/.*$',
+            '^suse/[^/]*$',
+            '^foo/[^/]*/bar/.*$'
         ]
