@@ -40,6 +40,7 @@ class DistributionProxy:
     configured as proxy
     """
     def __init__(self, server: str, container: str = '') -> None:
+        self.log_path = '/var/log/cgyle'
         self.server = server.replace('http://', '')
         self.server = self.server.replace('https://', '')
         self.container = container
@@ -86,7 +87,7 @@ class DistributionProxy:
                     f'Invalid credentials, expected user:pass, got {proxy_creds}'
                 )
         server = self.server
-        Path('/tmp/cgyle').mkdir(parents=True, exist_ok=True)
+        Path(self.log_path).mkdir(parents=True, exist_ok=True)
         if store_oci:
             Path(store_oci).mkdir(parents=True, exist_ok=True)
         count = 0
@@ -103,8 +104,8 @@ class DistributionProxy:
                 )
             else:
                 archive_name = '/dev/null'
-                log_name = '/tmp/cgyle/{}-{}.log'.format(
-                    self.container, tagname
+                log_name = '{}/{}-{}.log'.format(
+                    self.log_path, self.container, tagname
                 )
             Path(os.path.dirname(log_name)).mkdir(
                 parents=True, exist_ok=True
