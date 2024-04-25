@@ -62,3 +62,21 @@ class CgylePodmanError(CgyleError):
     """
     Exception raised if podman call returns errors
     """
+
+
+class CgyleLoginError(CgyleError):
+    """
+    Exception raised if podman login has errors
+    """
+
+
+class CgyleCredentialsError(CgyleError):
+    """
+    Exception raised if the credentials format is invalid
+    """
+
+
+class CgyleThreadError(CgyleError):
+    """
+    A thread raised an exception
+    """

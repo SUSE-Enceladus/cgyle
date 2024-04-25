@@ -3,7 +3,10 @@ from cgyle.cli import Cli
 from unittest.mock import (
     patch, Mock, call
 )
-from pytest import fixture
+from pytest import (
+    fixture, raises
+)
+from cgyle.exceptions import CgyleThreadError
 
 from .test_helper import argv_cgyle_tests
 
@@ -54,22 +57,14 @@ class TestCli:
             assert 'some-container' in self._caplog.text
 
     @patch.object(Cli, '_get_catalog')
-    @patch.object(Cli, '_get_running_requests')
     @patch('cgyle.cli.DistributionProxy')
-    @patch('time.sleep')
     def test_update_cache(
-        self, mock_time_sleep, mock_DistributionProxy,
-        mock_get_running_requests, mock_get_catalog
+        self, mock_DistributionProxy, mock_get_catalog
     ):
-        pids = [2, 0, 2, 0]
         proxy = Mock()
         proxy.get_tags.return_value = ['latest']
         mock_DistributionProxy.return_value = proxy
 
-        def get_running_requests(*args):
-            return pids.pop(0)
-
-        mock_get_running_requests.side_effect = get_running_requests
         mock_get_catalog.return_value = ['some-container']
         self.cli.dryrun = False
         self.cli.local_distribution_cache = 'local://distribution:some'
@@ -86,18 +81,31 @@ class TestCli:
             ]
             proxy.create_local_distribution_instance.assert_called_once_with(
                 data_dir='local://distribution:some',
-                remote='registry.opensuse.org',
-                proxy_creds=''
+                remote='registry.opensuse.org'
             )
             proxy.update_cache.assert_called_once_with(
-                tls_verify=False, store_oci='', tags=['latest']
+                ['latest'], False, '', ''
             )
 
-    def test_get_running_requests(self):
-        thread = Mock()
-        thread.is_alive.return_value = False
-        self.cli.threads = {'1': thread}
-        assert self.cli._get_running_requests() == 0
+    @patch.object(Cli, '_get_catalog')
+    @patch('cgyle.cli.DistributionProxy')
+    @patch('concurrent.futures.as_completed')
+    def test_update_cache_thread_raises(
+        self, mock_futures_as_completed, mock_DistributionProxy,
+        mock_get_catalog
+    ):
+        proxy = Mock()
+        proxy.get_tags.return_value = ['latest']
+        mock_DistributionProxy.return_value = proxy
+        mock_get_catalog.return_value = ['some-container']
+        self.cli.dryrun = False
+        self.cli.local_distribution_cache = None
+        worker = Mock()
+        worker.exception = Mock(return_value='error')
+        mock_futures_as_completed.return_value = [worker]
+
+        with raises(CgyleThreadError):
+            self.cli.update_cache()
 
     @patch('cgyle.cli.Catalog')
     def test_get_catalog_request(self, mock_Catalog):

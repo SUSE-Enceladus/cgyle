@@ -27,7 +27,10 @@ import logging
 import subprocess
 from typing import Optional
 from cgyle.catalog import Catalog
-from cgyle.exceptions import CgyleCommandError
+from cgyle.exceptions import (
+    CgyleCommandError, CgyleLoginError, CgyleCredentialsError
+)
+from subprocess import SubprocessError
 from typing import List
 
 
@@ -63,15 +66,25 @@ class DistributionProxy:
             output, error = self.skopeo.communicate()
             config = json.loads(output)
             return config.get('RepoTags') or []
-        except Exception:
+        except SubprocessError:
             return []
 
     def update_cache(
-        self, tags: List[str], tls_verify: bool = True, store_oci: str = ''
+        self, tags: List[str], tls_verify: bool = True,
+        store_oci: str = '', proxy_creds: str = ''
     ) -> None:
         """
         Trigger a cache update of the container
         """
+        username = ''
+        password = ''
+        if proxy_creds:
+            try:
+                username, password = proxy_creds.split(':')
+            except ValueError:
+                raise CgyleCredentialsError(
+                    f'Invalid credentials, expected user:pass, got {proxy_creds}'
+                )
         server = self.server
         Path('/tmp/cgyle').mkdir(parents=True, exist_ok=True)
         if store_oci:
@@ -103,6 +116,8 @@ class DistributionProxy:
                 f'oci-archive:{archive_name}:{tagname}'
             ]
             try:
+                if username and password:
+                    self._login(username, password, log_name)
                 with open(log_name, 'a') as clog:
                     self.skopeo = subprocess.Popen(
                         call_args, stdout=clog, stderr=clog
@@ -124,7 +139,7 @@ class DistributionProxy:
                     else:
                         os.unlink(log_name)
                     logging.info(f'[{self.pid}]: [Done]')
-            except Exception as issue:
+            except (SubprocessError, IOError) as issue:
                 raise CgyleCommandError(
                     'Failed to update cache for: {}: {}'.format(
                         self.container, issue
@@ -145,7 +160,7 @@ class DistributionProxy:
             try:
                 username, password = proxy_creds.split(':')
             except ValueError:
-                raise CgyleCommandError(
+                raise CgyleCredentialsError(
                     f'Invalid credentials, expected user:pass, got {proxy_creds}'
                 )
         with open(self.registry_config.name, 'w') as config:
@@ -199,7 +214,7 @@ class DistributionProxy:
                     f'Distribution instance not reachable: {catalog_issue}'
                 )
             return registry_url
-        except Exception as issue:
+        except SubprocessError as issue:
             raise CgyleCommandError(
                 f'Failed to create distribution instance: {issue!r}'
             )
@@ -239,6 +254,24 @@ class DistributionProxy:
             config['proxy']['username'] = username
             config['proxy']['password'] = password
         return config
+
+    def _login(self, username: str, password: str, log_name: str) -> int:
+        with open(log_name, 'a') as clog:
+            login = subprocess.Popen(
+                [
+                    'podman', 'login',
+                    '-u', username, '-p', password, self.server
+                ], stdout=clog, stderr=clog
+            )
+            login.communicate()
+            returncode = login.returncode
+        if returncode != 0:
+            raise CgyleLoginError(
+                '[X]: [E] Failed to authenticate - for details see: {}'.format(
+                    log_name
+                )
+            )
+        return returncode
 
     def __exit__(self, exc_type, exc_value, traceback):
         if self.registry_name:

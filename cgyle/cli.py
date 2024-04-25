@@ -22,6 +22,7 @@ usage: cgyle -h | --help
            [--filter=<expression>]
            [--filter-policy=<policyfile>|(--filter-policy=<policyfile> --skip-policy-section=<name>...)]
            [--registry-creds=<user:pwd>]
+           [--proxy-creds=<user:pwd>]
            [--store-oci=<dir>]
            [--tls-verify-proxy=<BOOL>]
            [--tls-verify-registry=<BOOL>]
@@ -50,6 +51,10 @@ options:
     --registry-creds=<user:pwd>
         Contact given registry with the provided credentials
 
+    --proxy-creds=<user:pwd>
+        Login to given proxy registry with the provided credentials
+        using podman login
+
     --store-oci=<dir>
         Store each container as oci dir below the given
         directory
@@ -66,18 +71,16 @@ options:
         distribution registry will be started as a proxy and
         its cache is stored below the given directory DIR
 """
-import time
-import threading
+import concurrent.futures
 import logging
-from typing import (
-    List, Dict
-)
+from typing import List
 from docopt import docopt
 from contextlib import ExitStack
 
 from cgyle.version import __version__
 from cgyle.proxy import DistributionProxy
 from cgyle.catalog import Catalog
+from cgyle.exceptions import CgyleThreadError
 
 logging.basicConfig(
     format='%(levelname)s:%(message)s',
@@ -98,12 +101,12 @@ class Cli:
 
         self.max_requests = 10
         self.wait_timeout = 3
-        self.threads: Dict[str, threading.Thread] = {}
         self.tls_proxy = \
             True if self.arguments['--tls-verify-proxy'] == 'True' else False
         self.tls_registry = \
             True if self.arguments['--tls-verify-registry'] == 'True' else False
         self.tls_registry_creds = self.arguments['--registry-creds'] or ''
+        self.tls_proxy_creds = self.arguments['--proxy-creds'] or ''
         self.dryrun = not bool(self.arguments['--apply'])
         self.cache = self.arguments['--updatecache']
         self.pattern = self.arguments['--filter']
@@ -127,7 +130,6 @@ class Cli:
 
     def update_cache(self) -> None:
         count = 0
-        request_count = 0
 
         with ExitStack() as main:
             if self.local_distribution_cache and not self.dryrun:
@@ -137,10 +139,13 @@ class Cli:
                 self.tls_proxy = False
                 self.cache = local_proxy.create_local_distribution_instance(
                     data_dir=self.local_distribution_cache,
-                    remote=self.from_registry,
-                    proxy_creds=self.tls_registry_creds
+                    remote=self.from_registry
                 )
 
+            thread_pool = []
+            thread_executor = concurrent.futures.ThreadPoolExecutor(
+                max_workers=self.max_requests
+            )
             with ExitStack() as stack:
                 # process container fetch requests...
                 if self.dryrun:
@@ -150,43 +155,27 @@ class Cli:
                     if self.dryrun:
                         logging.info(f'  ({count}) - {container}')
                     else:
-                        request_count += 1
-                        while request_count >= self.max_requests:
-                            request_count = self._get_running_requests()
-                            if request_count >= self.max_requests:
-                                time.sleep(self.wait_timeout)
-
                         proxy = DistributionProxy(self.cache, container)
                         stack.push(proxy)
-
-                        proxy_thread = threading.Thread(
-                            target=proxy.update_cache,
-                            kwargs={
-                                'tls_verify': self.tls_proxy,
-                                'store_oci': self.store_oci,
-                                'tags': DistributionProxy(
+                        thread_pool.append(
+                            thread_executor.submit(
+                                proxy.update_cache,
+                                DistributionProxy(
                                     self.from_registry, container
-                                ).get_tags()
-                            }
+                                ).get_tags(),
+                                self.tls_proxy,
+                                self.store_oci,
+                                self.tls_proxy_creds
+                            )
                         )
-                        proxy_thread.start()
-                        self.threads[format(count)] = proxy_thread
 
+            thread_executor.shutdown(wait=False)
             if not self.dryrun:
                 # wait until all requests are processed
-                request_count = self._get_running_requests()
-                while request_count > 0:
-                    time.sleep(self.wait_timeout)
-                    request_count = self._get_running_requests()
-
-    def _get_running_requests(self):
-        threads_done = []
-        for count in self.threads:
-            if not self.threads[count].is_alive():
-                threads_done.append(count)
-        for count in threads_done:
-            del self.threads[count]
-        return len(self.threads.keys())
+                for worker in concurrent.futures.as_completed(thread_pool):
+                    exception = worker.exception()
+                    if exception is not None:
+                        raise CgyleThreadError(exception)
 
     def _get_catalog(self) -> List[str]:
         catalog = Catalog()
