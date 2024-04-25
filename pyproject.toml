@@ -26,6 +26,7 @@ include = [
    { path = "package", format = "sdist" },
    { path = "test", format = "sdist" },
    { path = "tox.ini", format = "sdist" },
+   { path = "systemd", format = "sdist" },
 ]
 
 classifiers = [

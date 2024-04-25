@@ -1,0 +1,6 @@
+[Unit]
+Description=Cache update for registry.suse.com
+
+[Service]
+Type=simple
+ExecStart=cgyle --updatecache local://distribution:/var/lib/registry --proxy-creds SCC_USER:SCC_PASS --registry-creds SCC_USER:SCC_PASS --from https://registry.suse.com --filter-policy SCC_POLICY --skip-policy-section free --apply
