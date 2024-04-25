@@ -26,6 +26,7 @@ usage: cgyle -h | --help
            [--store-oci=<dir>]
            [--tls-verify-proxy=<BOOL>]
            [--tls-verify-registry=<BOOL>]
+           [--max-requests=<number>]
 
 options:
     --apply
@@ -65,6 +66,10 @@ options:
     --tls-verify-registry=BOOL
         Contact given registry location without TLS [default: True]
 
+    --max-requests=<number>
+        Maximum number of parallel container requests. Note, all
+        container tags are handled in one request [default: 10]
+
     --updatecache=<proxy>
         Proxy location to trigger the cache update for. If
         the special value local://distribution:DIR is set, a local
@@ -98,9 +103,7 @@ class Cli:
             version='cgyle version ' + __version__,
             options_first=True
         )
-
-        self.max_requests = 10
-        self.wait_timeout = 3
+        self.max_requests = int(self.arguments['--max-requests'])
         self.tls_proxy = \
             True if self.arguments['--tls-verify-proxy'] == 'True' else False
         self.tls_registry = \
