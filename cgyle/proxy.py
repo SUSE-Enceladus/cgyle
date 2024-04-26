@@ -30,6 +30,7 @@ from cgyle.catalog import Catalog
 from cgyle.exceptions import (
     CgyleCommandError, CgyleLoginError, CgyleCredentialsError
 )
+from json import JSONDecodeError
 from subprocess import SubprocessError
 from typing import List
 
@@ -67,7 +68,7 @@ class DistributionProxy:
             output, error = self.skopeo.communicate()
             config = json.loads(output)
             return config.get('RepoTags') or []
-        except SubprocessError:
+        except (SubprocessError, JSONDecodeError):
             return []
 
     def update_cache(
