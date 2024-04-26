@@ -162,30 +162,37 @@ class DistributionProxy:
                 username, password = proxy_creds.split(':')
             except ValueError:
                 raise CgyleCredentialsError(
-                    f'Invalid credentials, expected user:pass, got {proxy_creds}'
+                    'Invalid credentials, expected user:pass, got {}'.format(
+                        proxy_creds
+                    )
                 )
-        with open(self.registry_config.name, 'w') as config:
-            yaml.dump(
-                self._get_distribution_config(remote, port, username, password),
-                config
-            )
-        logging.info(
-            f'Find local registry data at: {os.path.abspath(data_dir)}'
-        )
-        Path(data_dir).mkdir(parents=True, exist_ok=True)
-        self.registry_name = f'{os.path.basename(self.registry_config.name)}'
-        podman_create_args = [
-            'podman', 'run', '--detach', '--name', self.registry_name,
-            '--net', 'host',
-            '-v', f'{os.path.abspath(data_dir)}/:/var/lib/registry/',
-            '-v', f'{self.registry_config.name}:/etc/docker/registry/config.yml',
-            '-v', '/etc/pki/:/etc/pki/',
-            '-v', '/etc/hosts:/etc/hosts',
-            '-v', '/etc/ssl/:/etc/ssl/',
-            '-v', '/var/lib/ca-certificates/:/var/lib/ca-certificates/',
-            'docker.io/library/registry:latest'
-        ]
         try:
+            with open(self.registry_config.name, 'w') as config:
+                yaml.dump(
+                    self._get_distribution_config(
+                        remote, port, username, password
+                    ),
+                    config
+                )
+            logging.info(
+                f'Find local registry data at: {os.path.abspath(data_dir)}'
+            )
+            Path(data_dir).mkdir(parents=True, exist_ok=True)
+            self.registry_name = \
+                f'{os.path.basename(self.registry_config.name)}'
+            podman_create_args = [
+                'podman', 'run', '--detach', '--name', self.registry_name,
+                '--net', 'host',
+                '-v',
+                f'{os.path.abspath(data_dir)}/:/var/lib/registry/',
+                '-v',
+                f'{self.registry_config.name}:/etc/docker/registry/config.yml',
+                '-v', '/etc/pki/:/etc/pki/',
+                '-v', '/etc/hosts:/etc/hosts',
+                '-v', '/etc/ssl/:/etc/ssl/',
+                '-v', '/var/lib/ca-certificates/:/var/lib/ca-certificates/',
+                'docker.io/library/registry:latest'
+            ]
             podman_create = subprocess.Popen(
                 podman_create_args,
                 stdout=subprocess.PIPE,
@@ -215,7 +222,7 @@ class DistributionProxy:
                     f'Distribution instance not reachable: {catalog_issue}'
                 )
             return registry_url
-        except SubprocessError as issue:
+        except (SubprocessError, IOError) as issue:
             raise CgyleCommandError(
                 f'Failed to create distribution instance: {issue!r}'
             )
