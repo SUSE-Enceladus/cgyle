@@ -166,7 +166,7 @@ class Cli:
                                 proxy.update_cache,
                                 DistributionProxy(
                                     self.from_registry, container
-                                ).get_tags(),
+                                ).get_tags(True, self.tls_proxy_creds),
                                 self.tls_proxy,
                                 self.store_oci,
                                 self.tls_proxy_creds

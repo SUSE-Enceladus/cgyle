@@ -28,7 +28,7 @@ import subprocess
 from typing import Optional
 from cgyle.catalog import Catalog
 from cgyle.exceptions import (
-    CgyleCommandError, CgyleLoginError, CgyleCredentialsError
+    CgyleCommandError, CgyleCredentialsError
 )
 from json import JSONDecodeError
 from subprocess import SubprocessError
@@ -53,9 +53,16 @@ class DistributionProxy:
     def __enter__(self):
         return self
 
-    def get_tags(self, tls_verify: bool = True) -> List[str]:
+    def get_tags(
+        self, tls_verify: bool = True, proxy_creds: str = ''
+    ) -> List[str]:
+        username, password = self._get_credentials(proxy_creds)
         call_args = [
-            'skopeo', 'inspect',
+            'skopeo', 'inspect'
+        ]
+        if username and password:
+            call_args += ['--creds', f'{username}:{password}']
+        call_args += [
             f'--tls-verify={format(tls_verify).lower()}',
             f'docker://{self.server}/{self.container}'
         ]
@@ -66,10 +73,16 @@ class DistributionProxy:
                 stderr=subprocess.PIPE
             )
             output, error = self.skopeo.communicate()
+            if self.skopeo.returncode != 0:
+                raise SubprocessError(error)
             config = json.loads(output)
             return config.get('RepoTags') or []
-        except (SubprocessError, JSONDecodeError):
-            return []
+        except (SubprocessError, JSONDecodeError) as issue:
+            raise CgyleCommandError(
+                'Failed to get tag list for: {}: {}'.format(
+                    self.container, issue
+                )
+            )
 
     def update_cache(
         self, tags: List[str], tls_verify: bool = True,
@@ -78,15 +91,7 @@ class DistributionProxy:
         """
         Trigger a cache update of the container
         """
-        username = ''
-        password = ''
-        if proxy_creds:
-            try:
-                username, password = proxy_creds.split(':')
-            except ValueError:
-                raise CgyleCredentialsError(
-                    f'Invalid credentials, expected user:pass, got {proxy_creds}'
-                )
+        username, password = self._get_credentials(proxy_creds)
         server = self.server
         Path(self.log_path).mkdir(parents=True, exist_ok=True)
         if store_oci:
@@ -113,13 +118,17 @@ class DistributionProxy:
             )
             call_args = [
                 'skopeo', 'copy', '--all',
-                f'--src-tls-verify={format(tls_verify).lower()}',
+                f'--src-tls-verify={format(tls_verify).lower()}'
+            ]
+            if username and password:
+                call_args += [
+                    '--src-creds', f'{username}:{password}'
+                ]
+            call_args += [
                 f'docker://{server}/{self.container}:{tagname}',
                 f'oci-archive:{archive_name}:{tagname}'
             ]
             try:
-                if username and password:
-                    self._login(username, password, log_name)
                 with open(log_name, 'a') as clog:
                     self.skopeo = subprocess.Popen(
                         call_args, stdout=clog, stderr=clog
@@ -156,17 +165,7 @@ class DistributionProxy:
         proxy_creds: str = ''
     ) -> str:
         self.registry_config = NamedTemporaryFile(prefix='cgyle_local_dist')
-        username = ''
-        password = ''
-        if proxy_creds:
-            try:
-                username, password = proxy_creds.split(':')
-            except ValueError:
-                raise CgyleCredentialsError(
-                    'Invalid credentials, expected user:pass, got {}'.format(
-                        proxy_creds
-                    )
-                )
+        username, password = self._get_credentials(proxy_creds)
         try:
             with open(self.registry_config.name, 'w') as config:
                 yaml.dump(
@@ -264,23 +263,17 @@ class DistributionProxy:
             config['proxy']['password'] = password
         return config
 
-    def _login(self, username: str, password: str, log_name: str) -> int:
-        with open(log_name, 'a') as clog:
-            login = subprocess.Popen(
-                [
-                    'podman', 'login',
-                    '-u', username, '-p', password, self.server
-                ], stdout=clog, stderr=clog
-            )
-            login.communicate()
-            returncode = login.returncode
-        if returncode != 0:
-            raise CgyleLoginError(
-                '[X]: [E] Failed to authenticate - for details see: {}'.format(
-                    log_name
+    def _get_credentials(self, proxy_creds: str) -> List[str]:
+        username = ''
+        password = ''
+        if proxy_creds:
+            try:
+                username, password = proxy_creds.split(':')
+            except ValueError:
+                raise CgyleCredentialsError(
+                    f'Invalid credentials, expected user:pass, got {proxy_creds}'
                 )
-            )
-        return returncode
+        return [username, password]
 
     def __exit__(self, exc_type, exc_value, traceback):
         if self.registry_name:

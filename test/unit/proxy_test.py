@@ -1,6 +1,6 @@
 import io
 from unittest.mock import (
-    patch, Mock, MagicMock, call
+    patch, Mock, MagicMock
 )
 from pytest import (
     raises, fixture
@@ -8,7 +8,7 @@ from pytest import (
 from cgyle.proxy import DistributionProxy
 from subprocess import SubprocessError
 from cgyle.exceptions import (
-    CgyleCommandError, CgyleLoginError, CgyleCredentialsError
+    CgyleCommandError, CgyleCredentialsError
 )
 
 
@@ -40,23 +40,6 @@ class TestDistributionProxy:
     @patch('cgyle.proxy.subprocess.Popen')
     @patch('os.unlink')
     @patch('cgyle.proxy.Path')
-    def test_update_cache_login_failed(
-        self, mock_Path, mock_os_unlink, mock_Popen
-    ):
-        login = Mock()
-        login.returncode = 1
-        login.communicate.return_value = ('stdout', 'stderr')
-        mock_Popen.return_value = login
-        with patch('builtins.open', create=True):
-            with raises(CgyleLoginError):
-                self.proxy.update_cache(
-                    store_oci='some_dir', tags=['latest'],
-                    proxy_creds='user:pass'
-                )
-
-    @patch('cgyle.proxy.subprocess.Popen')
-    @patch('os.unlink')
-    @patch('cgyle.proxy.Path')
     def test_update_cache(
         self, mock_Path, mock_os_unlink, mock_Popen
     ):
@@ -70,20 +53,14 @@ class TestDistributionProxy:
             self.proxy.update_cache(
                 store_oci='some_dir', tags=['latest'], proxy_creds='user:pass'
             )
-            assert mock_Popen.call_args_list == [
-                call(
-                    [
-                        'podman', 'login', '-u', 'user', '-p', 'pass', 'server'
-                    ], stdout=file_handle, stderr=file_handle
-                ),
-                call(
-                    [
-                        'skopeo', 'copy', '--all', '--src-tls-verify=true',
-                        'docker://server/container:latest',
-                        'oci-archive:some_dir/container-latest.oci.tar:latest'
-                    ], stdout=file_handle, stderr=file_handle
-                )
-            ]
+            mock_Popen.assert_called_once_with(
+                [
+                    'skopeo', 'copy', '--all', '--src-tls-verify=true',
+                    '--src-creds', 'user:pass',
+                    'docker://server/container:latest',
+                    'oci-archive:some_dir/container-latest.oci.tar:latest'
+                ], stdout=file_handle, stderr=file_handle
+            )
             assert skopeo.communicate.called
 
     @patch('cgyle.proxy.subprocess.Popen')
@@ -199,11 +176,16 @@ class TestDistributionProxy:
     @patch('cgyle.proxy.subprocess.Popen')
     def test_get_tags(self, mock_Popen):
         skopeo = Mock()
+        skopeo.returncode = 0
         skopeo.communicate.return_value = ['{"RepoTags": ["name"]}', '']
         mock_Popen.return_value = skopeo
-        assert self.proxy.get_tags() == ['name']
+        assert self.proxy.get_tags(True, 'user:pass') == ['name']
+        skopeo.returncode = 1
+        with raises(CgyleCommandError):
+            self.proxy.get_tags()
         mock_Popen.side_effect = SubprocessError
-        assert self.proxy.get_tags() == []
+        with raises(CgyleCommandError):
+            self.proxy.get_tags()
 
     @patch('os.kill')
     @patch('psutil.pid_exists')
