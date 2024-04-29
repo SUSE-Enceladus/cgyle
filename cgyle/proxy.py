@@ -152,7 +152,7 @@ class DistributionProxy:
         return format(self.pid)
 
     def create_local_distribution_instance(
-        self, data_dir: str, remote: str, port: int = 5000,
+        self, data_dir: str, remote: str, port: int = 7000,
         proxy_creds: str = ''
     ) -> str:
         self.registry_config = NamedTemporaryFile(prefix='cgyle_local_dist')
