@@ -1,0 +1,12 @@
+[Unit]
+Description=Cache update timer for registry.suse.com
+Requires=network-online.target
+After=network.target syslog.target
+
+[Timer]
+Unit=registry-suse-com.service
+OnBootSec=1min
+OnUnitActiveSec=6h
+
+[Install]
+WantedBy=multi-user.target
