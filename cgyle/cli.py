@@ -21,6 +21,7 @@ usage: cgyle -h | --help
            [--apply]
            [--filter=<expression>]
            [--filter-policy=<policyfile>|(--filter-policy=<policyfile> --skip-policy-section=<name>...)]
+           [--arch=<arch>...]
            [--registry-creds=<user:pwd>]
            [--proxy-creds=<user:pwd>]
            [--store-oci=<dir>]
@@ -31,6 +32,10 @@ usage: cgyle -h | --help
 options:
     --apply
         Apply the cache update
+
+    --arch=<arch>...
+        Select architecture from multiarch containers as well
+        as from policy paths.
 
     --filter=<expression>
         Apply given regular expression on the list of
@@ -114,6 +119,7 @@ class Cli:
         self.cache = self.arguments['--updatecache']
         self.pattern = self.arguments['--filter']
         self.policy = self.arguments['--filter-policy']
+        self.use_archs: List[str] = self.arguments['--arch']
         self.policy_skip_sections: List[str] = \
             self.arguments['--skip-policy-section']
         self.from_registry = self.arguments['--from']
@@ -164,12 +170,11 @@ class Cli:
                         thread_pool.append(
                             thread_executor.submit(
                                 proxy.update_cache,
-                                DistributionProxy(
-                                    self.from_registry, container
-                                ).get_tags(True, self.tls_proxy_creds),
+                                self.from_registry,
                                 self.tls_proxy,
                                 self.store_oci,
-                                self.tls_proxy_creds
+                                self.tls_proxy_creds,
+                                self.use_archs
                             )
                         )
 
@@ -194,7 +199,7 @@ class Cli:
         if self.policy:
             result = catalog.apply_filter(
                 result, catalog.translate_policy(
-                    self.policy, self.policy_skip_sections
+                    self.policy, self.policy_skip_sections, self.use_archs
                 )
             )
 

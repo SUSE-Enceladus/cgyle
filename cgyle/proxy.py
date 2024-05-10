@@ -54,12 +54,18 @@ class DistributionProxy:
         return self
 
     def get_tags(
-        self, tls_verify: bool = True, proxy_creds: str = ''
+        self, tls_verify: bool = True, proxy_creds: str = '', arch: str = ''
     ) -> List[str]:
         username, password = self._get_credentials(proxy_creds)
         call_args = [
-            'skopeo', 'inspect'
+            'skopeo'
         ]
+        arch = '' if arch == 'all' else arch
+        if arch:
+            call_args += [
+                '--override-arch', arch
+            ]
+        call_args.append('inspect')
         if username and password:
             call_args += ['--creds', f'{username}:{password}']
         call_args += [
@@ -76,6 +82,8 @@ class DistributionProxy:
             if self.skopeo.returncode != 0:
                 raise SubprocessError(error)
             config = json.loads(output)
+            if arch and config.get('Architecture') != arch:
+                return []
             return config.get('RepoTags') or []
         except (SubprocessError, JSONDecodeError) as issue:
             raise CgyleCommandError(
@@ -85,8 +93,8 @@ class DistributionProxy:
             )
 
     def update_cache(
-        self, tags: List[str], tls_verify: bool = True,
-        store_oci: str = '', proxy_creds: str = ''
+        self, from_registry: str, tls_verify: bool = True, store_oci: str = '',
+        proxy_creds: str = '', use_archs: List[str] = []
     ) -> None:
         """
         Trigger a cache update of the container
@@ -96,66 +104,80 @@ class DistributionProxy:
         Path(self.log_path).mkdir(parents=True, exist_ok=True)
         if store_oci:
             Path(store_oci).mkdir(parents=True, exist_ok=True)
-        count = 0
-        for tagname in tags:
-            count += 1
-            if self.shutdown:
-                break
-            if store_oci:
-                archive_name = '{}/{}-{}.oci.tar'.format(
-                    store_oci, self.container, tagname
-                )
-                log_name = '{}/{}-{}.log'.format(
-                    store_oci, self.container, tagname
-                )
-            else:
-                archive_name = '/dev/null'
-                log_name = '{}/{}-{}.log'.format(
-                    self.log_path, self.container, tagname
-                )
-            Path(os.path.dirname(log_name)).mkdir(
-                parents=True, exist_ok=True
-            )
-            call_args = [
-                'skopeo', 'copy', '--all',
-                f'--src-tls-verify={format(tls_verify).lower()}'
-            ]
-            if username and password:
-                call_args += [
-                    '--src-creds', f'{username}:{password}'
-                ]
-            call_args += [
-                f'docker://{server}/{self.container}:{tagname}',
-                f'oci-archive:{archive_name}:{tagname}'
-            ]
-            try:
-                with open(log_name, 'a') as clog:
-                    self.skopeo = subprocess.Popen(
-                        call_args, stdout=clog, stderr=clog
-                    )
-                    self.pid = self.skopeo.pid
-                    logging.info(
-                        '[{}]: Fetch Container ({}/{} tags): {}:{}@{}'.format(
-                            self.pid, count, len(tags),
-                            self.container, tagname, server
+
+        if not use_archs:
+            use_archs.append('all')
+
+        try:
+            for arch in use_archs:
+                count = 0
+                if self.shutdown:
+                    break
+                tag_list = DistributionProxy(
+                    from_registry, self.container
+                ).get_tags(tls_verify, proxy_creds, arch)
+                for tagname in tag_list:
+                    count += 1
+                    if store_oci:
+                        archive_name = '{}/{}-{}-{}.oci.tar'.format(
+                            store_oci, self.container, tagname, arch
                         )
-                    )
-                    self.skopeo.communicate()
-                    if self.skopeo.returncode != 0:
-                        logging.error(
-                            '[{}]: [E] - for details see: {}'.format(
-                                self.pid, log_name
-                            )
+                        log_name = '{}/{}-{}-{}.log'.format(
+                            store_oci, self.container, tagname, arch
                         )
                     else:
-                        os.unlink(log_name)
-                    logging.info(f'[{self.pid}]: [Done]')
-            except (SubprocessError, IOError) as issue:
-                raise CgyleCommandError(
-                    'Failed to update cache for: {}: {}'.format(
-                        self.container, issue
+                        archive_name = '/dev/null'
+                        log_name = '{}/{}-{}-{}.log'.format(
+                            self.log_path, self.container, tagname, arch
+                        )
+                    Path(os.path.dirname(log_name)).mkdir(
+                        parents=True, exist_ok=True
                     )
+                    if arch == 'all':
+                        call_args = [
+                            'skopeo', 'copy', '--all',
+                            f'--src-tls-verify={format(tls_verify).lower()}'
+                        ]
+                    else:
+                        call_args = [
+                            'skopeo', '--override-arch', arch, 'copy',
+                            f'--src-tls-verify={format(tls_verify).lower()}'
+                        ]
+                    if username and password:
+                        call_args += [
+                            '--src-creds', f'{username}:{password}'
+                        ]
+                    call_args += [
+                        f'docker://{server}/{self.container}:{tagname}',
+                        f'oci-archive:{archive_name}:{tagname}'
+                    ]
+                    with open(log_name, 'a') as clog:
+                        self.skopeo = subprocess.Popen(
+                            call_args, stdout=clog, stderr=clog
+                        )
+                        self.pid = self.skopeo.pid
+                        logging.info(
+                            '[{}]: Fetching ({}/{} tags, arch:{}): {}:{}@{}'.format(
+                                self.pid, count, len(tag_list), arch,
+                                self.container, tagname, server
+                            )
+                        )
+                        self.skopeo.communicate()
+                        if self.skopeo.returncode != 0:
+                            logging.error(
+                                '[{}]: [E] - for details see: {}'.format(
+                                    self.pid, log_name
+                                )
+                            )
+                        else:
+                            os.unlink(log_name)
+                        logging.info(f'[{self.pid}]: [Done]')
+        except (SubprocessError, IOError) as issue:
+            raise CgyleCommandError(
+                'Failed to update cache for: {}: {}'.format(
+                    self.container, issue
                 )
+            )
 
     def get_pid(self) -> str:
         return format(self.pid)

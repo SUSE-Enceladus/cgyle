@@ -26,23 +26,32 @@ class TestDistributionProxy:
     @patch('cgyle.proxy.subprocess.Popen')
     @patch('os.unlink')
     @patch('cgyle.proxy.Path')
+    @patch('cgyle.proxy.DistributionProxy')
     def test_update_cache_raises(
-        self, mock_Path, mock_os_unlink, mock_Popen
+        self, mock_DistributionProxy, mock_Path, mock_os_unlink, mock_Popen
     ):
+        proxy = Mock()
+        proxy.get_tags.return_value = ['latest']
+        mock_DistributionProxy.return_value = proxy
         mock_Popen.side_effect = SubprocessError
         with raises(CgyleCommandError):
-            self.proxy.update_cache(tags=['latest'])
+            self.proxy.update_cache(from_registry='some_registry')
         with raises(CgyleCredentialsError):
             self.proxy.update_cache(
-                store_oci='some_dir', tags=['latest'], proxy_creds='bogus_creds'
+                from_registry='some_registry', store_oci='some_dir',
+                proxy_creds='bogus_creds'
             )
 
     @patch('cgyle.proxy.subprocess.Popen')
     @patch('os.unlink')
     @patch('cgyle.proxy.Path')
+    @patch('cgyle.proxy.DistributionProxy')
     def test_update_cache(
-        self, mock_Path, mock_os_unlink, mock_Popen
+        self, mock_DistributionProxy, mock_Path, mock_os_unlink, mock_Popen
     ):
+        proxy = Mock()
+        proxy.get_tags.return_value = ['latest']
+        mock_DistributionProxy.return_value = proxy
         skopeo = Mock()
         skopeo.returncode = 0
         skopeo.communicate.return_value = ('stdout', 'stderr')
@@ -51,14 +60,15 @@ class TestDistributionProxy:
             mock_open.return_value = MagicMock(spec=io.IOBase)
             file_handle = mock_open.return_value.__enter__.return_value
             self.proxy.update_cache(
-                store_oci='some_dir', tags=['latest'], proxy_creds='user:pass'
+                from_registry='some_registry', store_oci='some_dir',
+                proxy_creds='user:pass'
             )
             mock_Popen.assert_called_once_with(
                 [
                     'skopeo', 'copy', '--all', '--src-tls-verify=true',
                     '--src-creds', 'user:pass',
                     'docker://server/container:latest',
-                    'oci-archive:some_dir/container-latest.oci.tar:latest'
+                    'oci-archive:some_dir/container-latest-all.oci.tar:latest'
                 ], stdout=file_handle, stderr=file_handle
             )
             assert skopeo.communicate.called
@@ -66,16 +76,54 @@ class TestDistributionProxy:
     @patch('cgyle.proxy.subprocess.Popen')
     @patch('os.unlink')
     @patch('cgyle.proxy.Path')
-    def test_update_cache_null_output(
-        self, mock_Path, mock_os_unlink, mock_Popen
+    @patch('cgyle.proxy.DistributionProxy')
+    def test_update_cache_multi_arch(
+        self, mock_DistributionProxy, mock_Path, mock_os_unlink, mock_Popen
     ):
+        proxy = Mock()
+        proxy.get_tags.return_value = ['latest']
+        mock_DistributionProxy.return_value = proxy
+        skopeo = Mock()
+        skopeo.returncode = 0
+        skopeo.communicate.return_value = ('stdout', 'stderr')
+        mock_Popen.return_value = skopeo
+        with patch('builtins.open', create=True) as mock_open:
+            mock_open.return_value = MagicMock(spec=io.IOBase)
+            file_handle = mock_open.return_value.__enter__.return_value
+            self.proxy.update_cache(
+                from_registry='some_registry',
+                store_oci='some_dir',
+                proxy_creds='user:pass',
+                use_archs=['x86_64']
+            )
+            mock_Popen.assert_called_once_with(
+                [
+                    'skopeo', '--override-arch', 'x86_64',
+                    'copy', '--src-tls-verify=true',
+                    '--src-creds', 'user:pass',
+                    'docker://server/container:latest',
+                    'oci-archive:some_dir/container-latest-x86_64.oci.tar:latest'
+                ], stdout=file_handle, stderr=file_handle
+            )
+            assert skopeo.communicate.called
+
+    @patch('cgyle.proxy.subprocess.Popen')
+    @patch('os.unlink')
+    @patch('cgyle.proxy.Path')
+    @patch('cgyle.proxy.DistributionProxy')
+    def test_update_cache_null_output(
+        self, mock_DistributionProxy, mock_Path, mock_os_unlink, mock_Popen
+    ):
+        proxy = Mock()
+        proxy.get_tags.return_value = ['latest']
+        mock_DistributionProxy.return_value = proxy
         skopeo = Mock()
         skopeo.returncode = 1
         mock_Popen.return_value = skopeo
         with patch('builtins.open', create=True) as mock_open:
             mock_open.return_value = MagicMock(spec=io.IOBase)
             file_handle = mock_open.return_value.__enter__.return_value
-            self.proxy.update_cache(tags=['latest'])
+            self.proxy.update_cache(from_registry='some_registry')
             mock_Popen.assert_called_once_with(
                 [
                     'skopeo', 'copy', '--all', '--src-tls-verify=true',
@@ -177,9 +225,11 @@ class TestDistributionProxy:
     def test_get_tags(self, mock_Popen):
         skopeo = Mock()
         skopeo.returncode = 0
-        skopeo.communicate.return_value = ['{"RepoTags": ["name"]}', '']
+        skopeo.communicate.return_value = ['{"RepoTags": ["name"],"Architecture": "amd64"}', '']
         mock_Popen.return_value = skopeo
         assert self.proxy.get_tags(True, 'user:pass') == ['name']
+        assert self.proxy.get_tags(True, 'user:pass', 'amd64') == ['name']
+        assert self.proxy.get_tags(True, 'user:pass', 's390x') == []
         skopeo.returncode = 1
         with raises(CgyleCommandError):
             self.proxy.get_tags()
@@ -190,15 +240,19 @@ class TestDistributionProxy:
     @patch('os.kill')
     @patch('psutil.pid_exists')
     @patch('cgyle.proxy.Path')
+    @patch('cgyle.proxy.DistributionProxy')
     def test_context_manager_exit_keyboard_interrupt(
-        self, mock_Path, mock_pid_exists, mock_os_kill
+        self, mock_DistributionProxy, mock_Path, mock_pid_exists, mock_os_kill
     ):
         mock_pid_exists.return_value = True
+        proxy = Mock()
+        proxy.get_tags.return_value = ['latest']
+        mock_DistributionProxy.return_value = proxy
         with raises(KeyboardInterrupt):
             with DistributionProxy('server', 'container') as proxy:
                 proxy.pid = 1234
                 proxy.shutdown = True
-                proxy.update_cache(tags=['latest'])
+                proxy.update_cache(from_registry='some_registry')
                 raise KeyboardInterrupt
             mock_os_kill.assert_called_once_with()
 

@@ -45,7 +45,7 @@ class TestCli:
             call(['some-container'], ['.*'])
         ]
         catalog.translate_policy.assert_called_once_with(
-            '../data/policy', []
+            '../data/policy', [], []
         )
 
     @patch.object(Cli, '_get_catalog')
@@ -62,7 +62,6 @@ class TestCli:
         self, mock_DistributionProxy, mock_get_catalog
     ):
         proxy = Mock()
-        proxy.get_tags.return_value = ['latest']
         mock_DistributionProxy.return_value = proxy
 
         mock_get_catalog.return_value = ['some-container']
@@ -76,8 +75,7 @@ class TestCli:
                 call(
                     proxy.create_local_distribution_instance.return_value,
                     'some-container'
-                ),
-                call('registry.opensuse.org', 'some-container')
+                )
             ]
             proxy.create_local_distribution_instance.assert_called_once_with(
                 data_dir='local://distribution:some',
@@ -85,19 +83,15 @@ class TestCli:
                 proxy_creds=''
             )
             proxy.update_cache.assert_called_once_with(
-                ['latest'], False, '', ''
+                'registry.opensuse.org', False, '', '', []
             )
 
     @patch.object(Cli, '_get_catalog')
-    @patch('cgyle.cli.DistributionProxy')
     @patch('concurrent.futures.as_completed')
     def test_update_cache_thread_raises(
-        self, mock_futures_as_completed, mock_DistributionProxy,
+        self, mock_futures_as_completed,
         mock_get_catalog
     ):
-        proxy = Mock()
-        proxy.get_tags.return_value = ['latest']
-        mock_DistributionProxy.return_value = proxy
         mock_get_catalog.return_value = ['some-container']
         self.cli.dryrun = False
         self.cli.local_distribution_cache = None

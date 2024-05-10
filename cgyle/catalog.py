@@ -37,6 +37,9 @@ class Catalog:
     Read v2 registry catalog
     """
     def __init__(self) -> None:
+        self.archs = [
+            'amd64', 'x86_64', 'arm64', 'aarch64', 's390x', 'ppc64el', 'ppc64le'
+        ]
         self.response = Response()
 
     def get_catalog(self, server: str) -> List[str]:
@@ -117,15 +120,23 @@ class Catalog:
         return sorted(result)
 
     def translate_policy(
-        self, policy_file: str, skip_sections: List[str] = []
+        self, policy_file: str,
+        skip_sections: List[str] = [], use_archs: List[str] = []
     ) -> List[str]:
         result: List[str] = []
+        skip_archs = []
+        if use_archs:
+            skip_archs = self.archs
+            skip_archs = list(filter(lambda i: i not in use_archs, skip_archs))
         with open(policy_file) as policy:
             policy_dict = yaml.safe_load(policy)
             for category in policy_dict:
                 if category not in skip_sections:
                     for pattern in policy_dict.get(category):
-                        pattern = re.sub('(?<!\*)\*(?!\*)', '[^/]*', pattern)
-                        pattern = re.sub('\*\*', '.*', pattern)
-                        result.append(f'^{pattern}$')
+                        if not next(
+                            (arch for arch in skip_archs if arch in pattern), None
+                        ):
+                            pattern = re.sub('(?<!\*)\*(?!\*)', '[^/]*', pattern)
+                            pattern = re.sub('\*\*', '.*', pattern)
+                            result.append(f'^{pattern}$')
         return result
