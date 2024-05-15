@@ -28,6 +28,7 @@ usage: cgyle -h | --help
            [--tls-verify-proxy=<BOOL>]
            [--tls-verify-registry=<BOOL>]
            [--max-requests=<number>]
+       cgyle --list-archs
 
 options:
     --apply
@@ -36,6 +37,9 @@ options:
     --arch=<arch>...
         Select architecture from multiarch containers as well
         as from policy paths.
+
+    --list-archs
+        List available arch names that cgyle can match
 
     --filter=<expression>
         Apply given regular expression on the list of
@@ -117,6 +121,7 @@ class Cli:
         self.tls_proxy_creds = self.arguments['--proxy-creds'] or ''
         self.dryrun = not bool(self.arguments['--apply'])
         self.cache = self.arguments['--updatecache']
+        self.list_archs = self.arguments['--list-archs']
         self.pattern = self.arguments['--filter']
         self.policy = self.arguments['--filter-policy']
         self.use_archs: List[str] = self.arguments['--arch']
@@ -126,7 +131,7 @@ class Cli:
         self.store_oci = self.arguments['--store-oci'] or ''
 
         self.local_distribution_cache = ''
-        if self.cache.startswith('local://distribution'):
+        if self.cache and self.cache.startswith('local://distribution'):
             self.local_distribution_cache = self.cache.split(':')[2]
 
         self.use_podman_search = False
@@ -134,7 +139,9 @@ class Cli:
             self.use_podman_search = True
 
         if process:
-            if self.cache:
+            if self.list_archs:
+                logging.info(Catalog.get_arch_list())
+            elif self.cache:
                 self.update_cache()
 
     def update_cache(self) -> None:

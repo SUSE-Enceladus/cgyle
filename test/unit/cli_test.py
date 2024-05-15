@@ -1,4 +1,5 @@
 import logging
+import sys
 from cgyle.cli import Cli
 from unittest.mock import (
     patch, Mock, call
@@ -8,7 +9,9 @@ from pytest import (
 )
 from cgyle.exceptions import CgyleThreadError
 
-from .test_helper import argv_cgyle_tests
+from .test_helper import (
+    argv_cgyle_tests, argv_cgyle_list_archs
+)
 
 
 class TestCli:
@@ -17,11 +20,17 @@ class TestCli:
         self._caplog = caplog
 
     def setup(self):
-        self.argv = argv_cgyle_tests
+        sys.argv = argv_cgyle_tests
         self.cli = Cli(process=False)
 
     def setup_method(self, cls):
         self.setup()
+
+    def test_list_archs(self):
+        sys.argv = argv_cgyle_list_archs
+        with self._caplog.at_level(logging.INFO):
+            Cli()
+            assert "['amd64', 'x86_64', 'arm64', 'aarch64', 's390x', 'ppc64el', 'ppc64le']" in self._caplog.text
 
     @patch.object(Cli, 'update_cache')
     def test_process(self, mock_update_cache):

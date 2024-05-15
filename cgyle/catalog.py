@@ -37,9 +37,7 @@ class Catalog:
     Read v2 registry catalog
     """
     def __init__(self) -> None:
-        self.archs = [
-            'amd64', 'x86_64', 'arm64', 'aarch64', 's390x', 'ppc64el', 'ppc64le'
-        ]
+        self.archs = Catalog.get_arch_list()
         self.response = Response()
 
     def get_catalog(self, server: str) -> List[str]:
@@ -140,3 +138,9 @@ class Catalog:
                             pattern = re.sub('\*\*', '.*', pattern)
                             result.append(f'^{pattern}$')
         return result
+
+    @staticmethod
+    def get_arch_list() -> List[str]:
+        return [
+            'amd64', 'x86_64', 'arm64', 'aarch64', 's390x', 'ppc64el', 'ppc64le'
+        ]
