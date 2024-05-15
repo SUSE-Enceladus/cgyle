@@ -107,9 +107,22 @@ class TestCatalog:
         ]
 
     def test_translate_policy(self):
-        assert self.catalog.translate_policy('../data/policy') == [
+        assert self.catalog.translate_policy(
+            '../data/policy', use_archs=['x86_64']
+        ) == [
             '^[^/]*$',
             '^bci/.*$',
             '^suse/[^/]*$',
-            '^foo/[^/]*/bar/.*$'
+            '^foo/[^/]*/bar/.*$',
+            '^foo/[^/]*/x86_64/bar/.*$'
+        ]
+        assert self.catalog.translate_policy(
+            '../data/policy'
+        ) == [
+            '^[^/]*$',
+            '^bci/.*$',
+            '^suse/[^/]*$',
+            '^foo/[^/]*/bar/.*$',
+            '^foo/[^/]*/x86_64/bar/.*$',
+            '^foo/s390x/bar$'
         ]

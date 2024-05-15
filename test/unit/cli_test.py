@@ -1,4 +1,5 @@
 import logging
+import sys
 from cgyle.cli import Cli
 from unittest.mock import (
     patch, Mock, call
@@ -8,7 +9,9 @@ from pytest import (
 )
 from cgyle.exceptions import CgyleThreadError
 
-from .test_helper import argv_cgyle_tests
+from .test_helper import (
+    argv_cgyle_tests, argv_cgyle_list_archs
+)
 
 
 class TestCli:
@@ -17,11 +20,17 @@ class TestCli:
         self._caplog = caplog
 
     def setup(self):
-        self.argv = argv_cgyle_tests
+        sys.argv = argv_cgyle_tests
         self.cli = Cli(process=False)
 
     def setup_method(self, cls):
         self.setup()
+
+    def test_list_archs(self):
+        sys.argv = argv_cgyle_list_archs
+        with self._caplog.at_level(logging.INFO):
+            Cli()
+            assert "['amd64', 'x86_64', 'arm64', 'aarch64', 's390x', 'ppc64el', 'ppc64le']" in self._caplog.text
 
     @patch.object(Cli, 'update_cache')
     def test_process(self, mock_update_cache):
@@ -45,7 +54,7 @@ class TestCli:
             call(['some-container'], ['.*'])
         ]
         catalog.translate_policy.assert_called_once_with(
-            '../data/policy', []
+            '../data/policy', [], []
         )
 
     @patch.object(Cli, '_get_catalog')
@@ -62,7 +71,6 @@ class TestCli:
         self, mock_DistributionProxy, mock_get_catalog
     ):
         proxy = Mock()
-        proxy.get_tags.return_value = ['latest']
         mock_DistributionProxy.return_value = proxy
 
         mock_get_catalog.return_value = ['some-container']
@@ -76,8 +84,7 @@ class TestCli:
                 call(
                     proxy.create_local_distribution_instance.return_value,
                     'some-container'
-                ),
-                call('registry.opensuse.org', 'some-container')
+                )
             ]
             proxy.create_local_distribution_instance.assert_called_once_with(
                 data_dir='local://distribution:some',
@@ -85,19 +92,15 @@ class TestCli:
                 proxy_creds=''
             )
             proxy.update_cache.assert_called_once_with(
-                ['latest'], False, '', ''
+                'registry.opensuse.org', False, '', '', []
             )
 
     @patch.object(Cli, '_get_catalog')
-    @patch('cgyle.cli.DistributionProxy')
     @patch('concurrent.futures.as_completed')
     def test_update_cache_thread_raises(
-        self, mock_futures_as_completed, mock_DistributionProxy,
+        self, mock_futures_as_completed,
         mock_get_catalog
     ):
-        proxy = Mock()
-        proxy.get_tags.return_value = ['latest']
-        mock_DistributionProxy.return_value = proxy
         mock_get_catalog.return_value = ['some-container']
         self.cli.dryrun = False
         self.cli.local_distribution_cache = None
