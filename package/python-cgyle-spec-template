@@ -97,7 +97,7 @@ install -m 644 systemd/registry-suse-com.timer \
 %files -n python%{python3_pkgversion}-cgyle
 %{python3_sitelib}/cgyle*
 %{_bindir}/cgyle
-%{_usr}/lib/systemd/system/registry-suse-com.timer
-%{_usr}/lib/systemd/system/registry-suse-com.service
+%config %{_usr}/lib/systemd/system/registry-suse-com.timer
+%config %{_usr}/lib/systemd/system/registry-suse-com.service
 
 %changelog
