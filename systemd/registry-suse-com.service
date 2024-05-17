@@ -3,4 +3,4 @@ Description=Cache update for registry.suse.com
 
 [Service]
 Type=simple
-ExecStart=cgyle --updatecache local://distribution:/var/lib/registry --proxy-creds SCC_USER:SCC_PASS --registry-creds SCC_USER:SCC_PASS --from https://registry.suse.com --filter-policy SCC_POLICY --skip-policy-section free --arch x86_64 --arch aarch64 --arch arm64 --arch amd64 --apply
+ExecStart=cgyle --updatecache local://distribution:/var/lib/registry --proxy-creds SCC_USER:SCC_PASS --registry-creds SCC_USER:SCC_PASS --from https://registry.suse.com --filter-policy /etc/rmt/access_policies.yml --skip-policy-section free --arch x86_64 --arch aarch64 --arch arm64 --arch amd64 --apply
