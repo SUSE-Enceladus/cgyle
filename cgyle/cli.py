@@ -58,10 +58,10 @@ options:
         from. It is expected that the referenced proxy registry
         uses this location in its configuration
 
-    --registry-creds=<user:pwd>
-        Contact given registry with the provided credentials
+    --registry-creds=<user:pwd|filename>
+        Contact given registry with the provided credentials.
 
-    --proxy-creds=<user:pwd>
+    --proxy-creds=<user:pwd|filename>
         Login to given proxy registry with the provided credentials
         using podman login
 
