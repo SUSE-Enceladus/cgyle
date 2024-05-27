@@ -53,7 +53,8 @@ class DistributionProxy:
         return self
 
     def get_tags(
-        self, tls_verify: bool = True, proxy_creds: str = '', arch: str = ''
+        self, tls_verify: bool = True, proxy_creds: str = '',
+        arch: str = '', tag_log_name: str = ''
     ) -> List[str]:
         username, password = Credentials.read(proxy_creds)
         call_args = [
@@ -72,14 +73,20 @@ class DistributionProxy:
             f'docker://{self.server}/{self.container}'
         ]
         try:
-            self.skopeo = subprocess.Popen(
-                call_args,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
+            if tag_log_name:
+                with open(tag_log_name, 'w') as clog:
+                    self.skopeo = subprocess.Popen(
+                        call_args, stdout=clog, stderr=clog
+                    )
+            else:
+                self.skopeo = subprocess.Popen(
+                    call_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                )
             output, error = self.skopeo.communicate()
             if self.skopeo.returncode != 0:
                 raise SubprocessError(error)
+            elif tag_log_name:
+                os.unlink(tag_log_name)
             config = json.loads(output)
             if arch and config.get('Architecture') != arch:
                 return []
@@ -112,9 +119,17 @@ class DistributionProxy:
                 count = 0
                 if self.shutdown:
                     break
+                if store_oci:
+                    tag_log_name = '{}/{}-tags-{}.log'.format(
+                        store_oci, self.container, arch
+                    )
+                else:
+                    tag_log_name = '{}/{}-tags-{}.log'.format(
+                        self.log_path, self.container, arch
+                    )
                 tag_list = DistributionProxy(
                     from_registry, self.container
-                ).get_tags(tls_verify, proxy_creds, arch)
+                ).get_tags(tls_verify, proxy_creds, arch, tag_log_name)
                 for tagname in tag_list:
                     count += 1
                     if store_oci:

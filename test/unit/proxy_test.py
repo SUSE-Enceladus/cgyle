@@ -222,7 +222,7 @@ class TestDistributionProxy:
             )
 
     @patch('cgyle.proxy.subprocess.Popen')
-    def test_get_tags(self, mock_Popen):
+    def test_get_tags_no_logfile(self, mock_Popen):
         skopeo = Mock()
         skopeo.returncode = 0
         skopeo.communicate.return_value = ['{"RepoTags": ["name"],"Architecture": "amd64"}', '']
@@ -236,6 +236,17 @@ class TestDistributionProxy:
         mock_Popen.side_effect = SubprocessError
         with raises(CgyleCommandError):
             self.proxy.get_tags()
+
+    @patch('cgyle.proxy.subprocess.Popen')
+    @patch('os.unlink')
+    def test_get_tags_with_logfile(self, mock_os_unlink, mock_Popen):
+        skopeo = Mock()
+        skopeo.returncode = 0
+        skopeo.communicate.return_value = ['{"RepoTags": ["name"],"Architecture": "amd64"}', '']
+        mock_Popen.return_value = skopeo
+        with patch('builtins.open', create=True):
+            self.proxy.get_tags(True, 'user:pass', 'amd64', 'some-log-file')
+        mock_os_unlink.assert_called_once_with('some-log-file')
 
     @patch('os.kill')
     @patch('psutil.pid_exists')

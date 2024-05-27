@@ -4,10 +4,7 @@ from cgyle.cli import Cli
 from unittest.mock import (
     patch, Mock, call
 )
-from pytest import (
-    fixture, raises
-)
-from cgyle.exceptions import CgyleThreadError
+from pytest import fixture
 
 from .test_helper import (
     argv_cgyle_tests, argv_cgyle_list_archs
@@ -97,7 +94,7 @@ class TestCli:
 
     @patch.object(Cli, '_get_catalog')
     @patch('concurrent.futures.as_completed')
-    def test_update_cache_thread_raises(
+    def test_update_cache_thread_report_errors_on_thread_exceptions(
         self, mock_futures_as_completed,
         mock_get_catalog
     ):
@@ -108,7 +105,7 @@ class TestCli:
         worker.exception = Mock(return_value='error')
         mock_futures_as_completed.return_value = [worker]
 
-        with raises(CgyleThreadError):
+        with self._caplog.at_level(logging.INFO):
             self.cli.update_cache()
 
     @patch('cgyle.cli.Catalog')

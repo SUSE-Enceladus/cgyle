@@ -94,7 +94,6 @@ from contextlib import ExitStack
 from cgyle.version import __version__
 from cgyle.proxy import DistributionProxy
 from cgyle.catalog import Catalog
-from cgyle.exceptions import CgyleThreadError
 
 logging.basicConfig(
     format='%(levelname)s:%(message)s',
@@ -191,7 +190,7 @@ class Cli:
                 for worker in concurrent.futures.as_completed(thread_pool):
                     exception = worker.exception()
                     if exception is not None:
-                        raise CgyleThreadError(exception)
+                        logging.error(f'Thread failed with: {exception}')
 
     def _get_catalog(self) -> List[str]:
         catalog = Catalog()
