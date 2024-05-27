@@ -74,9 +74,12 @@ class DistributionProxy:
         ]
         try:
             if tag_log_name:
+                Path(os.path.dirname(tag_log_name)).mkdir(
+                    parents=True, exist_ok=True
+                )
                 with open(tag_log_name, 'w') as clog:
                     self.skopeo = subprocess.Popen(
-                        call_args, stdout=clog, stderr=clog
+                        call_args, stdout=subprocess.PIPE, stderr=clog
                     )
             else:
                 self.skopeo = subprocess.Popen(
@@ -94,7 +97,8 @@ class DistributionProxy:
         except (SubprocessError, JSONDecodeError) as issue:
             raise CgyleCommandError(
                 'Failed to get tag list for: {}: {}'.format(
-                    self.container, issue
+                    self.container,
+                    f'Details at: {tag_log_name}' if tag_log_name else issue
                 )
             )
 
