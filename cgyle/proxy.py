@@ -25,7 +25,6 @@ from textwrap import dedent
 from tempfile import NamedTemporaryFile
 import logging
 import subprocess
-from typing import Optional
 from cgyle.credentials import Credentials
 from cgyle.catalog import Catalog
 from cgyle.exceptions import CgyleCommandError
@@ -44,7 +43,6 @@ class DistributionProxy:
         self.server = server.replace('http://', '')
         self.server = self.server.replace('https://', '')
         self.container = container
-        self.skopeo: Optional[subprocess.Popen[bytes]] = None
         self.registry_name = ''
         self.shutdown = False
         self.pid = 0
@@ -73,27 +71,36 @@ class DistributionProxy:
             f'docker://{self.server}/{self.container}'
         ]
         try:
-            if tag_log_name:
-                Path(os.path.dirname(tag_log_name)).mkdir(
-                    parents=True, exist_ok=True
+            output, error, returncode = self._call_skopeo(
+                call_args, tag_log_name
+            )
+            if returncode != 0:
+                # If skopeo could not read the manifest, try a podman search
+                call_args = [
+                    'podman', 'search', '--list-tags',
+                    '--no-trunc', '--format', '{{.Tag}}',
+                    f'{self.server}/{self.container}'
+                ]
+                if username and password:
+                    call_args += ['--creds', f'{username}:{password}']
+                output, error, returncode = self._call_skopeo(
+                    call_args, tag_log_name
                 )
-                with open(tag_log_name, 'w') as clog:
-                    self.skopeo = subprocess.Popen(
-                        call_args, stdout=subprocess.PIPE, stderr=clog
-                    )
+                if returncode != 0:
+                    raise SubprocessError(error)
+                else:
+                    if tag_log_name:
+                        os.unlink(tag_log_name)
+                    return output.strip().decode().split(
+                        os.linesep
+                    ) if output else []
             else:
-                self.skopeo = subprocess.Popen(
-                    call_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-                )
-            output, error = self.skopeo.communicate()
-            if self.skopeo.returncode != 0:
-                raise SubprocessError(error)
-            elif tag_log_name:
-                os.unlink(tag_log_name)
-            config = json.loads(output)
-            if arch and config.get('Architecture') != arch:
-                return []
-            return config.get('RepoTags') or []
+                if tag_log_name:
+                    os.unlink(tag_log_name)
+                config = json.loads(output)
+                if arch and config.get('Architecture') != arch:
+                    return []
+                return config.get('RepoTags') or []
         except (SubprocessError, JSONDecodeError) as issue:
             raise CgyleCommandError(
                 'Failed to get tag list for: {}: {}'.format(
@@ -170,18 +177,18 @@ class DistributionProxy:
                         f'oci-archive:{archive_name}:{tagname}'
                     ]
                     with open(log_name, 'a') as clog:
-                        self.skopeo = subprocess.Popen(
+                        skopeo = subprocess.Popen(
                             call_args, stdout=clog, stderr=clog
                         )
-                        self.pid = self.skopeo.pid
+                        self.pid = skopeo.pid
                         logging.info(
                             '[{}]: Fetching ({}/{} tags, arch:{}): {}:{}@{}'.format(
                                 self.pid, count, len(tag_list), arch,
                                 self.container, tagname, server
                             )
                         )
-                        self.skopeo.communicate()
-                        if self.skopeo.returncode != 0:
+                        skopeo.communicate()
+                        if skopeo.returncode != 0:
                             logging.error(
                                 '[{}]: [E] - for details see: {}'.format(
                                     self.pid, log_name
@@ -266,6 +273,22 @@ class DistributionProxy:
             raise CgyleCommandError(
                 f'Failed to create distribution instance: {issue!r}'
             )
+
+    def _call_skopeo(self, call_args: List[str], log_name: str = '') -> list:
+        if log_name:
+            Path(os.path.dirname(log_name)).mkdir(
+                parents=True, exist_ok=True
+            )
+            with open(log_name, 'w') as clog:
+                skopeo = subprocess.Popen(
+                    call_args, stdout=subprocess.PIPE, stderr=clog
+                )
+        else:
+            skopeo = subprocess.Popen(
+                call_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
+        output, error = skopeo.communicate()
+        return [output, error, skopeo.returncode]
 
     def _get_distribution_config(
         self, remote: str, port: int, username: str, password: str

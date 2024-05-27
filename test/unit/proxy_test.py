@@ -248,6 +248,29 @@ class TestDistributionProxy:
             self.proxy.get_tags(True, 'user:pass', 'amd64', 'some-log-file')
         mock_os_unlink.assert_called_once_with('some-log-file')
 
+    @patch('cgyle.proxy.subprocess.Popen')
+    @patch('os.unlink')
+    def test_get_tags_podman_search(self, mock_os_unlink, mock_Popen):
+        first = Mock()
+        first.returncode = 1
+        first.communicate.return_value = ['', '']
+        second = Mock()
+        second.returncode = 0
+        second.communicate.return_value = [b'tag1\ntag2', b'']
+        skopeos = [
+            second, first
+        ]
+
+        def calls(argc, **argv):
+            return skopeos.pop()
+
+        mock_Popen.side_effect = calls
+        with patch('builtins.open', create=True):
+            assert self.proxy.get_tags(
+                True, 'user:pass', 'amd64', 'some-log-file'
+            ) == ['tag1', 'tag2']
+        mock_os_unlink.assert_called_once_with('some-log-file')
+
     @patch('os.kill')
     @patch('psutil.pid_exists')
     @patch('cgyle.proxy.Path')
