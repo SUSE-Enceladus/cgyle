@@ -26,10 +26,9 @@ from tempfile import NamedTemporaryFile
 import logging
 import subprocess
 from typing import Optional
+from cgyle.credentials import Credentials
 from cgyle.catalog import Catalog
-from cgyle.exceptions import (
-    CgyleCommandError, CgyleCredentialsError
-)
+from cgyle.exceptions import CgyleCommandError
 from json import JSONDecodeError
 from subprocess import SubprocessError
 from typing import List
@@ -56,7 +55,7 @@ class DistributionProxy:
     def get_tags(
         self, tls_verify: bool = True, proxy_creds: str = '', arch: str = ''
     ) -> List[str]:
-        username, password = self._get_credentials(proxy_creds)
+        username, password = Credentials.read(proxy_creds)
         call_args = [
             'skopeo'
         ]
@@ -99,7 +98,7 @@ class DistributionProxy:
         """
         Trigger a cache update of the container
         """
-        username, password = self._get_credentials(proxy_creds)
+        username, password = Credentials.read(proxy_creds)
         server = self.server
         Path(self.log_path).mkdir(parents=True, exist_ok=True)
         if store_oci:
@@ -187,7 +186,7 @@ class DistributionProxy:
         proxy_creds: str = ''
     ) -> str:
         self.registry_config = NamedTemporaryFile(prefix='cgyle_local_dist')
-        username, password = self._get_credentials(proxy_creds)
+        username, password = Credentials.read(proxy_creds)
         try:
             with open(self.registry_config.name, 'w') as config:
                 yaml.dump(
@@ -284,18 +283,6 @@ class DistributionProxy:
             config['proxy']['username'] = username
             config['proxy']['password'] = password
         return config
-
-    def _get_credentials(self, proxy_creds: str) -> List[str]:
-        username = ''
-        password = ''
-        if proxy_creds:
-            try:
-                username, password = proxy_creds.split(':')
-            except ValueError:
-                raise CgyleCredentialsError(
-                    f'Invalid credentials, expected user:pass, got {proxy_creds}'
-                )
-        return [username, password]
 
     def __exit__(self, exc_type, exc_value, traceback):
         if self.registry_name:

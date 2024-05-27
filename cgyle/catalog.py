@@ -23,6 +23,7 @@ from typing import (
     List, Dict
 )
 
+from cgyle.credentials import Credentials
 from cgyle.response import Response
 from cgyle.exceptions import (
     CgyleCatalogError,
@@ -60,6 +61,7 @@ class Catalog:
         """
         Read registry catalog using podman search
         """
+        username, password = Credentials.read(creds)
         result: List[str] = []
         server = server.replace('http://', '')
         server = server.replace('https://', '')
@@ -68,9 +70,9 @@ class Catalog:
             f'--tls-verify={format(tls_verify).lower()}',
             '--limit', '2147483647'
         ]
-        if creds:
+        if username and password:
             call_args += [
-                '--creds', creds
+                '--creds', f'{username}:{password}'
             ]
         call_args.append(
             f'{server}:/'
