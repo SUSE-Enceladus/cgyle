@@ -91,6 +91,8 @@ class DistributionProxy:
                 else:
                     if tag_log_name:
                         os.unlink(tag_log_name)
+                    if arch and arch not in Catalog.get_container_arch_list():
+                        return []
                     return output.strip().decode().split(
                         os.linesep
                     ) if output else []

@@ -146,3 +146,9 @@ class Catalog:
         return [
             'amd64', 'x86_64', 'arm64', 'aarch64', 's390x', 'ppc64el', 'ppc64le'
         ]
+
+    @staticmethod
+    def get_container_arch_list() -> List[str]:
+        return [
+            'amd64', 'arm64'
+        ]
