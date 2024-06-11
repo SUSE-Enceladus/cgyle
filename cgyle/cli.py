@@ -85,6 +85,7 @@ options:
         distribution registry will be started as a proxy and
         its cache is stored below the given directory DIR
 """
+import os
 import concurrent.futures
 import logging
 from typing import List
@@ -128,6 +129,7 @@ class Cli:
             self.arguments['--skip-policy-section']
         self.from_registry = self.arguments['--from']
         self.store_oci = self.arguments['--store-oci'] or ''
+        self.catalog: List[str] = []
 
         self.local_distribution_cache = ''
         if self.cache and self.cache.startswith('local://distribution'):
@@ -145,6 +147,7 @@ class Cli:
 
     def update_cache(self) -> None:
         count = 0
+        self.catalog = []
 
         with ExitStack() as main:
             if self.local_distribution_cache and not self.dryrun:
@@ -192,6 +195,33 @@ class Cli:
                     if exception is not None:
                         logging.error(f'Thread failed with: {exception}')
 
+        # All done, collect errors if any. cgyle only keeps the
+        # log files of failed caching attempts and wipes the successful
+        # ones because there is no meaningful information in a successful
+        # caching process other than, the container was cached, which
+        # is an information that is still present by reading the log
+        # directory tree. The error information from all failed log
+        # files is now combined into one log file and appended to an
+        # eventually existing log file.
+        if not self.dryrun:
+            log_path = DistributionProxy.get_log_path()
+            log_file_name = f'{log_path}.log'
+            try:
+                with open(log_file_name, 'a') as collect_fd:
+                    for topdir, dirs, files in sorted(os.walk(log_path)):
+                        for entry in sorted(dirs + files):
+                            if entry in files:
+                                logfile = os.sep.join([topdir, entry])
+                                if any(container_name in logfile.lstrip(os.sep) for container_name in self.catalog):
+                                    collect_fd.write(f'{logfile}:{os.linesep}')
+                                    with open(logfile) as log_fd:
+                                        collect_fd.write(
+                                            log_fd.read() or 'no log data'
+                                        )
+                                        collect_fd.write(os.linesep)
+            except IOError as issue:
+                logging.error(f'Failed to create logfile: {issue}')
+
     def _get_catalog(self) -> List[str]:
         catalog = Catalog()
         if self.use_podman_search:
@@ -211,5 +241,8 @@ class Cli:
 
         if self.pattern:
             result = catalog.apply_filter(result, [self.pattern])
+
+        for entry in result:
+            self.catalog.append(entry.lstrip(os.sep))
 
         return result

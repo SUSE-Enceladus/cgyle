@@ -39,7 +39,7 @@ class DistributionProxy:
     configured as proxy
     """
     def __init__(self, server: str, container: str = '') -> None:
-        self.log_path = '/var/log/cgyle'
+        self.log_path = DistributionProxy.get_log_path()
         self.server = server.replace('http://', '')
         self.server = self.server.replace('https://', '')
         self.container = container
@@ -49,6 +49,10 @@ class DistributionProxy:
 
     def __enter__(self):
         return self
+
+    @staticmethod
+    def get_log_path():
+        return '/var/log/cgyle'
 
     def get_tags(
         self, tls_verify: bool = True, proxy_creds: str = '',
