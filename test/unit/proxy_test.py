@@ -1,6 +1,6 @@
 import io
 from unittest.mock import (
-    patch, Mock, MagicMock
+    patch, Mock, MagicMock, call
 )
 from pytest import (
     raises, fixture
@@ -143,9 +143,24 @@ class TestDistributionProxy:
     def test_create_local_distribution_instance_raises(
         self, mock_NamedTemporaryFile, mock_Path, mock_Popen, mock_Catalog
     ):
-        podman_create = Mock()
-        podman_create.communicate.return_value = (b'output', b'error')
-        mock_Popen.return_value = podman_create
+        popen_results = [
+            Mock(
+                returncode=1,
+                communicate=Mock(return_value=(b'output', b'error'))
+            ),
+            Mock(
+                returncode=0,
+                communicate=Mock(return_value=(b'output', b''))
+            )
+        ]
+
+        def podman(*args, **kwargs):
+            return popen_results.pop()
+
+        podman_call = Mock()
+        podman_call.communicate.return_value = (b'output', b'error')
+        podman_call.returncode = 1
+        mock_Popen.return_value = podman_call
         with patch('builtins.open', create=True):
             with raises(CgyleCredentialsError):
                 self.proxy.create_local_distribution_instance(
@@ -156,8 +171,15 @@ class TestDistributionProxy:
                 self.proxy.create_local_distribution_instance(
                     'data_dir', 'remote'
                 )
-        podman_create.communicate.return_value = (b'output', b'')
+        podman_call.communicate.return_value = (b'output', b'')
         mock_Popen.side_effect = SubprocessError
+        with patch('builtins.open', create=True):
+            with raises(CgyleCommandError):
+                self.proxy.create_local_distribution_instance(
+                    'data_dir', 'remote'
+                )
+        mock_Popen.reset_mock()
+        mock_Popen.side_effect = podman
         with patch('builtins.open', create=True):
             with raises(CgyleCommandError):
                 self.proxy.create_local_distribution_instance(
@@ -173,9 +195,10 @@ class TestDistributionProxy:
         self, mock_NamedTemporaryFile, mock_Path, mock_Popen,
         mock_Catalog, mock_time
     ):
-        podman_create = Mock()
-        podman_create.communicate.return_value = (b'output', b'')
-        mock_Popen.return_value = podman_create
+        podman_call = Mock()
+        podman_call.returncode = 0
+        podman_call.communicate.return_value = (b'output', b'')
+        mock_Popen.return_value = podman_call
         catalog = Mock()
         catalog.get_catalog.side_effect = Exception
         mock_Catalog.return_value = catalog
@@ -198,31 +221,37 @@ class TestDistributionProxy:
         tmp_file = Mock()
         tmp_file.name = '/tmp/cgyle_local_distXXXX'
         mock_NamedTemporaryFile.return_value = tmp_file
-        podman_create = Mock()
-        podman_create.communicate.return_value = (b'output', b'')
-        mock_Popen.return_value = podman_create
+        podman_call = Mock()
+        podman_call.returncode = 0
+        podman_call.communicate.return_value = (b'output', b'')
+        mock_Popen.return_value = podman_call
         with patch('builtins.open', create=True):
             self.proxy.create_local_distribution_instance(
                 'data_dir', 'remote', 5000, 'user:pass'
             )
             mock_Path.assert_called_once_with('data_dir')
-            mock_Popen.assert_called_once_with(
-                [
-                    'podman', 'run', '--detach',
-                    '--name', 'cgyle_local_distXXXX',
-                    '--rm',
-                    '--net', 'host',
-                    '-v', 'some_abs_path/:/var/lib/registry/',
-                    '-v', '/tmp/cgyle_local_distXXXX:/etc/docker/registry/config.yml',
-                    '-v', '/var/log/cgyle_proxy.log:/var/log/cgyle_proxy.log',
-                    '-v', '/etc/pki/:/etc/pki/',
-                    '-v', '/etc/hosts:/etc/hosts',
-                    '-v', '/etc/ssl/:/etc/ssl/',
-                    '-v', '/var/lib/ca-certificates/:/var/lib/ca-certificates/',
-                    'docker.io/library/registry:latest',
-                    'sh', '-c', 'registry serve /etc/docker/registry/config.yml &>/var/log/cgyle_proxy.log'
-                ], stdout=-1, stderr=-1
-            )
+            assert mock_Popen.call_args_list == [
+                call(
+                    ['podman', 'image', 'exists', 'registry'], stdout=-1, stderr=-1
+                ),
+                call(
+                    [
+                        'podman', 'run', '--detach',
+                        '--name', 'cgyle_local_distXXXX',
+                        '--rm',
+                        '--net', 'host',
+                        '-v', 'some_abs_path/:/var/lib/registry/',
+                        '-v', '/tmp/cgyle_local_distXXXX:/etc/docker/registry/config.yml',
+                        '-v', '/var/log/cgyle_proxy.log:/var/log/cgyle_proxy.log',
+                        '-v', '/etc/pki/:/etc/pki/',
+                        '-v', '/etc/hosts:/etc/hosts',
+                        '-v', '/etc/ssl/:/etc/ssl/',
+                        '-v', '/var/lib/ca-certificates/:/var/lib/ca-certificates/',
+                        'registry:latest',
+                        'sh', '-c', 'registry serve /etc/docker/registry/config.yml &>/var/log/cgyle_proxy.log'
+                    ], stdout=-1, stderr=-1
+                )
+            ]
 
     @patch('cgyle.proxy.subprocess.Popen')
     def test_get_tags_no_logfile(self, mock_Popen):
