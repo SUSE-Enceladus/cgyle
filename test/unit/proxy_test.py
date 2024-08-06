@@ -210,6 +210,7 @@ class TestDistributionProxy:
                 [
                     'podman', 'run', '--detach',
                     '--name', 'cgyle_local_distXXXX',
+                    '--rm',
                     '--net', 'host',
                     '-v', 'some_abs_path/:/var/lib/registry/',
                     '-v', '/tmp/cgyle_local_distXXXX:/etc/docker/registry/config.yml',
