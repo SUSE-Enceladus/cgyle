@@ -45,6 +45,17 @@ To run from source the following steps are needed:
 
 2. Create a local **distribution format** data tree mirror
 
+    Install or fetch the latest distribution registry container. For example:
+
+    .. code:: bash
+
+        podman pull docker.io/library/registry:latest
+
+    Next run cgyle which will run an instance of the above distribution registry
+    configured as a proxy for the `--from` target of the following cgyle call.
+    The container data tree produced inside of the container will be shared
+    with the host in the specified `my_mirror` directory.
+
     .. code:: bash
 
         poetry run cgyle --updatecache local://distribution:my_mirror --from https://registry.opensuse.org --filter '^opensuse/leap.*images.*toolbox' --apply
