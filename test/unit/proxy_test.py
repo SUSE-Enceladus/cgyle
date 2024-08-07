@@ -213,11 +213,13 @@ class TestDistributionProxy:
                     '--net', 'host',
                     '-v', 'some_abs_path/:/var/lib/registry/',
                     '-v', '/tmp/cgyle_local_distXXXX:/etc/docker/registry/config.yml',
+                    '-v', '/var/log/cgyle_proxy.log:/var/log/cgyle_proxy.log',
                     '-v', '/etc/pki/:/etc/pki/',
                     '-v', '/etc/hosts:/etc/hosts',
                     '-v', '/etc/ssl/:/etc/ssl/',
                     '-v', '/var/lib/ca-certificates/:/var/lib/ca-certificates/',
-                    'docker.io/library/registry:latest'
+                    'docker.io/library/registry:latest',
+                    'sh', '-c', 'registry serve /etc/docker/registry/config.yml &>/var/log/cgyle_proxy.log'
                 ], stdout=-1, stderr=-1
             )
 
