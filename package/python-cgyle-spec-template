@@ -68,6 +68,7 @@ Requires:       python%{python3_pkgversion}-PyYAML
 Requires:       python%{python3_pkgversion}-psutil
 Requires:       skopeo >= 1.14
 Requires:       podman >= 4.8
+Requires:       cgyle-oci-distribution >= 2.8.3
 
 %description -n python%{python3_pkgversion}-cgyle
 Tooling for the pubcloud team. Allows to pre-populate

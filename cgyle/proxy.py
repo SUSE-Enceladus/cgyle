@@ -235,6 +235,27 @@ class DistributionProxy:
             Path(data_dir).mkdir(parents=True, exist_ok=True)
             self.registry_name = \
                 f'{os.path.basename(self.registry_config.name)}'
+            cgyle_oci_distribution_check = subprocess.Popen(
+                ['podman', 'image', 'exists', 'registry'],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            cgyle_oci_distribution_check.communicate()
+            if cgyle_oci_distribution_check.returncode != 0:
+                podman_load_args = [
+                    'podman', 'load', '-i',
+                    '/usr/share/cgyle-oci-distribution/cgyle-oci-distribution.tar'
+                ]
+                podman_load = subprocess.Popen(
+                    podman_load_args,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE
+                )
+                output, error = podman_load.communicate()
+                if podman_load.returncode != 0:
+                    raise CgyleCommandError(
+                        f'Failed to load cgyle distribution container: {error!r}'
+                    )
             proxy_log = f'{self.log_path}_proxy.log'
             status = f'Create/Append {proxy_log}'
             with open(proxy_log, 'a'):
@@ -253,7 +274,7 @@ class DistributionProxy:
                 '-v', '/etc/hosts:/etc/hosts',
                 '-v', '/etc/ssl/:/etc/ssl/',
                 '-v', '/var/lib/ca-certificates/:/var/lib/ca-certificates/',
-                'docker.io/library/registry:latest',
+                'registry:latest',
                 'sh', '-c', f'registry serve /etc/docker/registry/config.yml &>{proxy_log}'
             ]
             status = f'Run podman process {podman_create_args}'
