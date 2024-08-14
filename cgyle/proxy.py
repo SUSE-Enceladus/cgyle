@@ -242,6 +242,7 @@ class DistributionProxy:
                 pass
             podman_create_args = [
                 'podman', 'run', '--detach', '--name', self.registry_name,
+                '--rm',
                 '--net', 'host',
                 '-v',
                 f'{os.path.abspath(data_dir)}/:/var/lib/registry/',
