@@ -20,6 +20,7 @@ packages = [
 ]
 
 include = [
+   { path = "tools", format = "sdist" },
    { path = ".bumpversion.cfg", format = "sdist" },
    { path = ".coverage*", format = "sdist" },
    { path = ".virtualenv.requirements*.txt", format = "sdist" },
