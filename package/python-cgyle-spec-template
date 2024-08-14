@@ -89,6 +89,9 @@ sed -e 's/docopt-ng.*/docopt = ">=0.6.2"/' -i pyproject.toml
 %install
 %{__python3} -m installer --destdir %{buildroot} %{?is_deb:--no-compile-bytecode} dist/*.whl
 
+install -d -m 755 %{buildroot}/usr/sbin
+install -m 755 tools/cgyle-pubcloud-infra-cleanup \
+    %{buildroot}/usr/sbin
 install -d -m 755 %{buildroot}/usr/lib/systemd/system
 install -m 644 systemd/registry-suse-com.service \
     %{buildroot}/usr/lib/systemd/system/registry-suse-com.service
@@ -98,6 +101,7 @@ install -m 644 systemd/registry-suse-com.timer \
 %files -n python%{python3_pkgversion}-cgyle
 %{python3_sitelib}/cgyle*
 %{_bindir}/cgyle
+%{_sbindir}/cgyle-pubcloud-infra-cleanup
 %config %{_usr}/lib/systemd/system/registry-suse-com.timer
 %config %{_usr}/lib/systemd/system/registry-suse-com.service
 

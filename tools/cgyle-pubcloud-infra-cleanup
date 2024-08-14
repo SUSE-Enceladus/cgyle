@@ -1,0 +1,14 @@
+#!/bin/bash
+# Run this script only on a SUSE public cloud RMT server
+# The script will stop and remove any running cgyle
+# container instances as well as the corresponding cgyle
+# container image. Run the script under the following
+# conditions:
+#
+# 1. A distribution container instance started by cgyle runs forever
+# 2. A new version of cgyle should be installed that comes with
+#    an update for the distribution container image
+#
+sudo rm -rf /tmp/podman-run*
+sudo -u _rmt podman rm --force --all
+sudo -u _rmt podman rmi --force --all
