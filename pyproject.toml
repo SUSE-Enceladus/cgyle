@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cgyle"
-version = "1.1.0"
+version = "1.1.1"
 description = "cgyle - container preload"
 license = "GPL-3.0-or-later"
 readme = "README.rst"
