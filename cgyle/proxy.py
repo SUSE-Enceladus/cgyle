@@ -221,6 +221,10 @@ class DistributionProxy:
         username, password = Credentials.read(proxy_creds)
         status = ''
         try:
+            scheduler_state_file = f'{os.path.abspath(data_dir)}/scheduler-state.json'
+            if not self._scheduler_state_ok(scheduler_state_file):
+                status = f'Deleting invalid state file {scheduler_state_file}'
+                os.unlink(scheduler_state_file)
             status = f'Creating {self.registry_config.name}'
             with open(self.registry_config.name, 'w') as config:
                 yaml.dump(
@@ -311,6 +315,19 @@ class DistributionProxy:
             raise CgyleCommandError(
                 f'Failed to create distribution instance: {status} {issue!r}'
             )
+
+    def _scheduler_state_ok(self, state_file: str) -> bool:
+        """
+        Check if current scheduler state file of the distribution
+        registry is valid.
+        """
+        if os.path.exists(state_file):
+            try:
+                with open(state_file) as json_file:
+                    json.load(json_file)
+            except JSONDecodeError:
+                return False
+        return True
 
     def _call_skopeo(self, call_args: List[str], log_name: str = '') -> list:
         if log_name:
