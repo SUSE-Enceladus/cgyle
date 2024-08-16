@@ -10,6 +10,7 @@ from subprocess import SubprocessError
 from cgyle.exceptions import (
     CgyleCommandError, CgyleCredentialsError
 )
+from json import JSONDecodeError
 
 
 class TestDistributionProxy:
@@ -207,6 +208,37 @@ class TestDistributionProxy:
                 self.proxy.create_local_distribution_instance(
                     'data_dir', 'remote'
                 )
+
+    @patch('os.unlink')
+    @patch('json.load')
+    @patch('os.path.exists')
+    @patch('os.path.abspath')
+    @patch('cgyle.proxy.NamedTemporaryFile')
+    @patch('cgyle.proxy.Catalog')
+    @patch('cgyle.proxy.subprocess.Popen')
+    @patch('cgyle.proxy.Path')
+    def test_create_local_distribution_instance_state_file_error(
+        self, mock_Path, mock_Popen, mock_Catalog, mock_NamedTemporaryFile,
+        mock_os_path_abspath, mock_os_path_exists, mock_json_load,
+        mock_os_unlink
+    ):
+        mock_os_path_abspath.return_value = 'some_abs_path'
+        tmp_file = Mock()
+        tmp_file.name = '/tmp/cgyle_local_distXXXX'
+        mock_NamedTemporaryFile.return_value = tmp_file
+        podman_call = Mock()
+        podman_call.returncode = 0
+        podman_call.communicate.return_value = (b'output', b'')
+        mock_Popen.return_value = podman_call
+        mock_os_path_exists.return_value = True
+        mock_json_load.side_effect = JSONDecodeError('msg', 'doc', 1)
+        with patch('builtins.open', create=True):
+            self.proxy.create_local_distribution_instance(
+                'data_dir', 'remote', 5000, 'user:pass'
+            )
+        mock_os_unlink.assert_called_once_with(
+            'some_abs_path/scheduler-state.json'
+        )
 
     @patch('os.path.abspath')
     @patch('cgyle.proxy.NamedTemporaryFile')
