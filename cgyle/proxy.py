@@ -166,14 +166,16 @@ class DistributionProxy:
                     )
                     if arch == 'all':
                         call_args = [
-                            'skopeo', 'copy', '--all',
-                            f'--src-tls-verify={format(tls_verify).lower()}'
+                            'skopeo', 'copy', '--all'
                         ]
                     else:
                         call_args = [
-                            'skopeo', '--override-arch', arch, 'copy',
-                            f'--src-tls-verify={format(tls_verify).lower()}'
+                            'skopeo', '--override-arch', arch, 'copy'
                         ]
+                    call_args += [
+                        '--retry-times', '5',
+                        f'--src-tls-verify={format(tls_verify).lower()}'
+                    ]
                     if username and password:
                         call_args += [
                             '--src-creds', f'{username}:{password}'

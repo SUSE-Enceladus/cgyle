@@ -66,7 +66,9 @@ class TestDistributionProxy:
             )
             mock_Popen.assert_called_once_with(
                 [
-                    'skopeo', 'copy', '--all', '--src-tls-verify=true',
+                    'skopeo', 'copy', '--all',
+                    '--retry-times', '5',
+                    '--src-tls-verify=true',
                     '--src-creds', 'user:pass',
                     'docker://server/container:latest',
                     'oci-archive:some_dir/container-latest-all.oci.tar:latest'
@@ -100,7 +102,7 @@ class TestDistributionProxy:
             mock_Popen.assert_called_once_with(
                 [
                     'skopeo', '--override-arch', 'x86_64',
-                    'copy', '--src-tls-verify=true',
+                    'copy', '--retry-times', '5', '--src-tls-verify=true',
                     '--src-creds', 'user:pass',
                     'docker://server/container:latest',
                     'oci-archive:some_dir/container-latest-x86_64.oci.tar:latest'
@@ -127,7 +129,9 @@ class TestDistributionProxy:
             self.proxy.update_cache(from_registry='some_registry')
             mock_Popen.assert_called_once_with(
                 [
-                    'skopeo', 'copy', '--all', '--src-tls-verify=true',
+                    'skopeo', 'copy', '--all',
+                    '--retry-times', '5',
+                    '--src-tls-verify=true',
                     'docker://server/container:latest',
                     'oci-archive:/dev/null:latest'
                 ], stdout=file_handle, stderr=file_handle
