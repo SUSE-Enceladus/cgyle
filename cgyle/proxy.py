@@ -164,16 +164,16 @@ class DistributionProxy:
                     Path(os.path.dirname(log_name)).mkdir(
                         parents=True, exist_ok=True
                     )
+                    call_args = [
+                            'skopeo', 'copy', '--retry-times', '5'
+                    ]
                     if arch == 'all':
-                        call_args = [
-                            'skopeo', 'copy', '--all',
-                            f'--src-tls-verify={format(tls_verify).lower()}'
-                        ]
+                        call_args.append('--all')
                     else:
-                        call_args = [
-                            'skopeo', '--override-arch', arch, 'copy',
-                            f'--src-tls-verify={format(tls_verify).lower()}'
-                        ]
+                        call_args += ['--override-arch', arch]
+                    call_args.append(
+                        f'--src-tls-verify={format(tls_verify).lower()}'
+                    )
                     if username and password:
                         call_args += [
                             '--src-creds', f'{username}:{password}'
