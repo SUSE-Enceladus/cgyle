@@ -7,6 +7,7 @@ After=network.target syslog.target
 Unit=registry-suse-com.service
 OnBootSec=1min
 OnUnitActiveSec=6h
+RandomizedDelaySec=3h
 
 [Install]
 WantedBy=multi-user.target
