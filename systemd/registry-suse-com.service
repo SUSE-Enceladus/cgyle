@@ -6,4 +6,5 @@ Type=simple
 User=_rmt
 Group=nginx
 RuntimeMaxSec=5h
+Restart=on-failure
 ExecStart=cgyle --updatecache local://distribution:/var/lib/rmt/public/repo/registry --proxy-creds /etc/rmt.conf --registry-creds /etc/rmt.conf --from https://registry.suse.com --filter-policy /etc/rmt/access_policies.yml --skip-policy-section free --arch x86_64 --arch aarch64 --arch arm64 --arch amd64 --apply
