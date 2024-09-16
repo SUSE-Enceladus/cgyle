@@ -18,6 +18,8 @@
 import os
 import re
 import yaml
+import logging
+import time
 import subprocess
 from typing import (
     List, Dict
@@ -77,30 +79,41 @@ class Catalog:
         call_args.append(
             f'{server}:/'
         )
-        try:
-            self.podman = subprocess.Popen(
-                call_args,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-            output, error = self.podman.communicate()
-            if error and self.podman.returncode != 0:
-                raise CgylePodmanError(
-                    f'podman search failed with: {error.decode()}'
+        retry = 0
+        max_retry = 10
+        catalog_issue = 'unknown'
+        while retry < max_retry:
+            try:
+                self.podman = subprocess.Popen(
+                    call_args,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE
                 )
-            if output:
-                result = []
-                for line in output.decode().split(os.linesep):
-                    server, slash, container = line.partition(os.sep)
-                    container = container.strip()
-                    if container:
-                        result.append(container)
-        except CgylePodmanError:
-            raise
-        except Exception as issue:
-            raise CgyleCommandError(
-                f'Failed to call podman search: {issue}'
-            )
+                output, error = self.podman.communicate()
+                if error and self.podman.returncode != 0:
+                    message = '[{}]: podman search failed with: {}'.format(
+                        retry + 1, error.decode().strip()
+                    )
+                    logging.info(message)
+                    raise CgylePodmanError(message)
+                if output:
+                    result = []
+                    for line in output.decode().split(os.linesep):
+                        server, slash, container = line.partition(os.sep)
+                        container = container.strip()
+                        if container:
+                            result.append(container)
+                break
+            except CgylePodmanError as issue:
+                catalog_issue = format(issue)
+                time.sleep(2)
+                retry += 1
+            except Exception as issue:
+                raise CgyleCommandError(
+                    f'Failed to call podman search: {issue}'
+                )
+        if retry >= max_retry:
+            raise CgylePodmanError(catalog_issue)
         return result
 
     def apply_filter(

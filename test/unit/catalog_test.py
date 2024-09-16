@@ -33,8 +33,9 @@ class TestCatalog:
                 'https://registry.opensuse.org'
             )
 
+    @patch('time.sleep')
     @patch('cgyle.proxy.subprocess.Popen')
-    def test_get_catalog_podman_search_raises_with_error(self, mock_Popen):
+    def test_get_catalog_podman_search_raises_with_error(self, mock_Popen, mock_time):
         podman = Mock()
         podman.communicate.return_value = (b'output', b'error')
         mock_Popen.return_value = podman
@@ -51,8 +52,9 @@ class TestCatalog:
                 'https://registry.opensuse.org'
             )
 
+    @patch('time.sleep')
     @patch('cgyle.proxy.subprocess.Popen')
-    def test_get_catalog_podman_search(self, mock_Popen):
+    def test_get_catalog_podman_search(self, mock_Popen, mock_time):
         podman = Mock()
         podman.communicate.return_value = (b'server/A\nserver/B', b'')
         mock_Popen.return_value = podman
