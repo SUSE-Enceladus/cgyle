@@ -61,6 +61,7 @@ pytest-xdist = "*"
 pytest-container = "*"
 # type checking
 mypy = ">=0.971"
+types-PyYAML = "*"
 types-requests = "*"
 types-mock = "*"
 
