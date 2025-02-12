@@ -174,6 +174,7 @@ class DistributionProxy:
                         ]
                     call_args += [
                         '--retry-times', '5',
+                        '--image-parallel-copies', '5',
                         f'--src-tls-verify={format(tls_verify).lower()}'
                     ]
                     if username and password:
