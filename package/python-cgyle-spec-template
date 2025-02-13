@@ -66,7 +66,7 @@ Requires:       python%{python3_pkgversion}-requests
 Requires:       python%{python3_pkgversion}-setuptools
 Requires:       python%{python3_pkgversion}-PyYAML
 Requires:       python%{python3_pkgversion}-psutil
-Requires:       skopeo >= 1.14
+Requires:       skopeo >= 1.17
 Requires:       podman >= 4.8
 Requires:       cgyle-oci-distribution >= 2.8.3
 
