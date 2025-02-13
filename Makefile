@@ -36,7 +36,7 @@ clean_git_attributes:
 clean:
 	rm -rf dist
 
-build: clean tox
+build: clean check test
 	# build the sdist source tarball
 	poetry build --format=sdist
 	# provide rpm source tarball
