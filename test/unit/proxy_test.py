@@ -67,6 +67,7 @@ class TestDistributionProxy:
             mock_Popen.assert_called_once_with(
                 [
                     'skopeo', 'copy', '--all',
+                    '--dest-oci-accept-uncompressed-layers',
                     '--retry-times', '5',
                     '--image-parallel-copies', '5',
                     '--src-tls-verify=true',
@@ -103,7 +104,8 @@ class TestDistributionProxy:
             mock_Popen.assert_called_once_with(
                 [
                     'skopeo', '--override-arch', 'x86_64',
-                    'copy', '--retry-times', '5',
+                    'copy', '--dest-oci-accept-uncompressed-layers',
+                    '--retry-times', '5',
                     '--image-parallel-copies', '5',
                     '--src-tls-verify=true',
                     '--src-creds', 'user:pass',
@@ -133,6 +135,7 @@ class TestDistributionProxy:
             mock_Popen.assert_called_once_with(
                 [
                     'skopeo', 'copy', '--all',
+                    '--dest-oci-accept-uncompressed-layers',
                     '--retry-times', '5',
                     '--image-parallel-copies', '5',
                     '--src-tls-verify=true',

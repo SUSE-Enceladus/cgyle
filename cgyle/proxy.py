@@ -173,6 +173,7 @@ class DistributionProxy:
                             'skopeo', '--override-arch', arch, 'copy'
                         ]
                     call_args += [
+                        '--dest-oci-accept-uncompressed-layers',
                         '--retry-times', '5',
                         '--image-parallel-copies', '5',
                         f'--src-tls-verify={format(tls_verify).lower()}'

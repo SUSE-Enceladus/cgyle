@@ -9,8 +9,19 @@ version := $(shell \
 	'from cgyle.version import __version__; print(__version__)'\
 )
 
-tox:
-	tox -- "-n 5"
+setup:
+	poetry install --all-extras
+
+check: setup
+	poetry run flake8 --statistics -j auto --count cgyle
+	poetry run flake8 --statistics -j auto --count test/unit
+
+test: setup
+	poetry run mypy cgyle
+	poetry run bash -c 'pushd test/unit && pytest -n 5 \
+		--doctest-modules --no-cov-on-fail --cov=cgyle \
+		--cov-report=term-missing --cov-fail-under=100 \
+		--cov-config .coveragerc'
 
 git_attributes:
 	# the following is required to update the $Format:%H$ git attribute
