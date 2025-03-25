@@ -74,9 +74,10 @@ class DistributionProxy:
             f'--tls-verify={format(tls_verify).lower()}',
             f'docker://{self.server}/{self.container}'
         ]
+        tag_list: List[str] = []
         try:
             output, error, returncode = self._call_skopeo(
-                call_args, tag_log_name
+                call_args
             )
             if returncode != 0:
                 # If skopeo could not read the manifest, try a podman search
@@ -93,20 +94,16 @@ class DistributionProxy:
                 if returncode != 0:
                     raise SubprocessError(error)
                 else:
-                    if tag_log_name:
-                        os.unlink(tag_log_name)
                     if arch and arch not in Catalog.get_container_arch_list():
                         return []
-                    return output.strip().decode().split(
+                    tag_list = output.strip().decode().split(
                         os.linesep
                     ) if output else []
             else:
-                if tag_log_name:
-                    os.unlink(tag_log_name)
                 config = json.loads(output)
                 if arch and config.get('Architecture') != arch:
                     return []
-                return config.get('RepoTags') or []
+                tag_list = config.get('RepoTags') or []
         except (SubprocessError, JSONDecodeError) as issue:
             raise CgyleCommandError(
                 'Failed to get tag list for: {}: {}'.format(
@@ -114,6 +111,12 @@ class DistributionProxy:
                     f'Details at: {tag_log_name}' if tag_log_name else issue
                 )
             )
+        if tag_log_name:
+            with open(tag_log_name, 'w') as taglog:
+                for tag in tag_list:
+                    if tag != 'latest':
+                        taglog.write(f'{tag}{os.linesep}')
+        return tag_list
 
     def update_cache(
         self, from_registry: str, tls_verify: bool = True, store_oci: str = '',
@@ -144,9 +147,15 @@ class DistributionProxy:
                     tag_log_name = '{}/{}-tags-{}.log'.format(
                         self.log_path, self.container, arch
                     )
+                prior_tag_list = []
+                if os.path.exists(tag_log_name):
+                    with open(tag_log_name) as taglog:
+                        prior_tag_list = [tag.rstrip() for tag in taglog]
                 tag_list = DistributionProxy(
                     from_registry, self.container
                 ).get_tags(tls_verify, proxy_creds, arch, tag_log_name)
+                tag_list = \
+                    [tag for tag in tag_list if tag not in prior_tag_list]
                 for tagname in tag_list:
                     count += 1
                     if store_oci:
