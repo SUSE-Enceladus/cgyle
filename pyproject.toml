@@ -69,6 +69,10 @@ types-mock = "*"
 [tool.poetry.group.style.dependencies]
 flake8 = ">=4.0.0"
 
+[tool.poetry.group.development]
+[tool.poetry.group.development.dependencies]
+bumpversion = "*"
+
 [build-system]
 requires = ["poetry-core>=1.2.0"]
 build-backend = "poetry.core.masonry.api"
