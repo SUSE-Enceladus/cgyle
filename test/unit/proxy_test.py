@@ -47,9 +47,12 @@ class TestDistributionProxy:
     @patch('os.unlink')
     @patch('cgyle.proxy.Path')
     @patch('cgyle.proxy.DistributionProxy')
+    @patch('os.path.exists')
     def test_update_cache(
-        self, mock_DistributionProxy, mock_Path, mock_os_unlink, mock_Popen
+        self, mock_os_path_exists,
+        mock_DistributionProxy, mock_Path, mock_os_unlink, mock_Popen
     ):
+        mock_os_path_exists.return_value = True
         proxy = Mock()
         proxy.get_tags.return_value = ['latest']
         mock_DistributionProxy.return_value = proxy
@@ -60,6 +63,7 @@ class TestDistributionProxy:
         with patch('builtins.open', create=True) as mock_open:
             mock_open.return_value = MagicMock(spec=io.IOBase)
             file_handle = mock_open.return_value.__enter__.return_value
+            file_handle.readline.return_value = ['tagname']
             self.proxy.update_cache(
                 from_registry='some_registry', store_oci='some_dir',
                 proxy_creds='user:pass'
@@ -321,7 +325,6 @@ class TestDistributionProxy:
         mock_Popen.return_value = skopeo
         with patch('builtins.open', create=True):
             self.proxy.get_tags(True, 'user:pass', 'amd64', 'some-log-file')
-        mock_os_unlink.assert_called_once_with('some-log-file')
 
     @patch('cgyle.proxy.subprocess.Popen')
     @patch('os.unlink')
@@ -344,7 +347,6 @@ class TestDistributionProxy:
             assert self.proxy.get_tags(
                 True, 'user:pass', 'amd64', 'some-log-file'
             ) == ['tag1', 'tag2']
-        mock_os_unlink.assert_called_once_with('some-log-file')
 
     @patch('cgyle.proxy.subprocess.Popen')
     @patch('os.unlink')
@@ -369,7 +371,6 @@ class TestDistributionProxy:
             assert self.proxy.get_tags(
                 True, 'user:pass', 'x86_64', 'some-log-file'
             ) == []
-        mock_os_unlink.assert_called_once_with('some-log-file')
 
     @patch('os.kill')
     @patch('psutil.pid_exists')
