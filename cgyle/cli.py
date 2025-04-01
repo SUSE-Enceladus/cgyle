@@ -212,13 +212,14 @@ class Cli:
                         for entry in sorted(dirs + files):
                             if entry in files:
                                 logfile = os.sep.join([topdir, entry])
-                                if any(container_name in logfile.lstrip(os.sep) for container_name in self.catalog):
-                                    collect_fd.write(f'{logfile}:{os.linesep}')
-                                    with open(logfile) as log_fd:
-                                        collect_fd.write(
-                                            log_fd.read() or 'no log data'
-                                        )
-                                        collect_fd.write(os.linesep)
+                                if logfile.endswith('.log'):
+                                    if any(container_name in logfile.lstrip(os.sep) for container_name in self.catalog):
+                                        collect_fd.write(f'{logfile}:{os.linesep}')
+                                        with open(logfile) as log_fd:
+                                            collect_fd.write(
+                                                log_fd.read() or 'no log data'
+                                            )
+                                            collect_fd.write(os.linesep)
             except IOError as issue:
                 logging.error(f'Failed to create logfile: {issue}')
 

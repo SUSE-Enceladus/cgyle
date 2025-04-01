@@ -89,7 +89,7 @@ class DistributionProxy:
                 if username and password:
                     call_args += ['--creds', f'{username}:{password}']
                 output, error, returncode = self._call_skopeo(
-                    call_args, tag_log_name
+                    call_args
                 )
                 if returncode != 0:
                     raise SubprocessError(error)
@@ -107,16 +107,30 @@ class DistributionProxy:
         except (SubprocessError, JSONDecodeError) as issue:
             raise CgyleCommandError(
                 'Failed to get tag list for: {}: {}'.format(
-                    self.container,
-                    f'Details at: {tag_log_name}' if tag_log_name else issue
+                    self.container, issue
                 )
             )
+        result_tag_list = []
+        for tag in tag_list:
+            # signed images contains .sig/.att tag names which references
+            # a specific SHA-256 digest of the image that got signed.
+            # We could take this information to verify the image prior
+            # pulling it but I believe there is enough trust established
+            # with the authentication against the origin registry server.
+            # From a mirror perspective we want to mirror the tag names
+            # and not the digests because users can do something with
+            # names but nothing with digests. In addition the setup of
+            # the origin registry server maintains the tag names to be
+            # immutable together with the signing. Thus we ignore
+            # repo tags ending with .sig/.att
+            if not tag.endswith('.sig') and not tag.endswith('.att'):
+                result_tag_list.append(tag)
         if tag_log_name:
             with open(tag_log_name, 'w') as taglog:
-                for tag in tag_list:
+                for tag in result_tag_list:
                     if tag != 'latest':
                         taglog.write(f'{tag}{os.linesep}')
-        return tag_list
+        return result_tag_list
 
     def update_cache(
         self, from_registry: str, tls_verify: bool = True, store_oci: str = '',
@@ -140,13 +154,16 @@ class DistributionProxy:
                 if self.shutdown:
                     break
                 if store_oci:
-                    tag_log_name = '{}/{}-tags-{}.log'.format(
+                    tag_log_name = '{}/{}-{}.tags'.format(
                         store_oci, self.container, arch
                     )
                 else:
-                    tag_log_name = '{}/{}-tags-{}.log'.format(
+                    tag_log_name = '{}/{}-{}.tags'.format(
                         self.log_path, self.container, arch
                     )
+                Path(os.path.dirname(tag_log_name)).mkdir(
+                    parents=True, exist_ok=True
+                )
                 prior_tag_list = []
                 if os.path.exists(tag_log_name):
                     with open(tag_log_name) as taglog:
@@ -342,19 +359,10 @@ class DistributionProxy:
                 return False
         return True
 
-    def _call_skopeo(self, call_args: List[str], log_name: str = '') -> list:
-        if log_name:
-            Path(os.path.dirname(log_name)).mkdir(
-                parents=True, exist_ok=True
-            )
-            with open(log_name, 'w') as clog:
-                skopeo = subprocess.Popen(
-                    call_args, stdout=subprocess.PIPE, stderr=clog
-                )
-        else:
-            skopeo = subprocess.Popen(
-                call_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-            )
+    def _call_skopeo(self, call_args: List[str]) -> list:
+        skopeo = subprocess.Popen(
+            call_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
         output, error = skopeo.communicate()
         return [output, error, skopeo.returncode]
 
