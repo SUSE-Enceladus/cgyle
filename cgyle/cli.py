@@ -24,10 +24,11 @@ usage: cgyle -h | --help
            [--arch=<arch>...]
            [--registry-creds=<user:pwd>]
            [--proxy-creds=<user:pwd>]
-           [--store-oci=<dir>]
+           [--store-oci=<dir>|--push-oci=<repo> --push-oci-creds=<user:pwd>]
            [--tls-verify-proxy=<BOOL>]
            [--tls-verify-registry=<BOOL>]
            [--max-requests=<number>]
+           [--remove-signatures]
        cgyle --list-archs
 
 options:
@@ -68,6 +69,18 @@ options:
     --store-oci=<dir>
         Store each container as oci dir below the given
         directory
+
+    --push-oci=<repo>
+        Push each container to the given repository.
+        this will push each container as containerbasename-tagname-arch
+        into the given repository
+
+    --push-oci-creds=<user:pwd>
+        Contact given push-oci registry with the provided credentials
+
+    --remove-signatures
+        Do not copy signatures. Necessary when copying a signed image
+        to a destination which does not support signatures
 
     --tls-verify-proxy=BOOL
         Contact given proxy location without TLS [default: True]
@@ -129,6 +142,9 @@ class Cli:
             self.arguments['--skip-policy-section']
         self.from_registry = self.arguments['--from']
         self.store_oci = self.arguments['--store-oci'] or ''
+        self.push_oci = self.arguments['--push-oci'] or ''
+        self.tls_push_oci_creds = self.arguments['--push-oci-creds'] or ''
+        self.remove_signatures = bool(self.arguments['--remove-signatures'])
         self.catalog: List[str] = []
 
         self.local_distribution_cache = ''
@@ -182,8 +198,11 @@ class Cli:
                                 self.from_registry,
                                 self.tls_proxy,
                                 self.store_oci,
+                                self.push_oci,
+                                self.tls_push_oci_creds,
                                 self.tls_proxy_creds,
-                                self.use_archs
+                                self.use_archs,
+                                self.remove_signatures
                             )
                         )
 
