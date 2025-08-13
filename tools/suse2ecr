@@ -1,0 +1,102 @@
+#!/bin/bash
+# push container images from a registry to an ECR
+
+set -e
+
+function usage {
+    echo "suse2ecr --aws-profile <name> --aws-ecr <url> --filter-policy <file>"
+    echo "  [--dry-run]"
+    echo "     apply filter policy only and print list of matches"
+    exit 1
+}
+
+ARGUMENT_LIST=(
+    "aws-profile:"
+    "aws-ecr:"
+    "filter-policy:"
+    "dry-run"
+)
+
+# read arguments
+if ! opts=$(getopt \
+    --longoptions "$(printf "%s," "${ARGUMENT_LIST[@]}")" \
+    --name "$(basename "$0")" \
+    --options "" \
+    -- "$@"
+); then
+    usage
+fi
+
+eval set --"${opts}"
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --aws-profile)
+            argAWSProfile=$2
+            shift 2
+            ;;
+
+        --aws-ecr)
+            argAWSECR=$2
+            shift 2
+            ;;
+
+        --filter-policy)
+            argFilterPolicy=$2
+            shift 2
+            ;;
+
+        --dry-run)
+            argDryRun=1
+            shift
+            ;;
+
+        *)
+            break
+            ;;
+    esac
+done
+
+if [ ! "${argAWSProfile}" ] || \
+   [ ! "${argAWSECR}" ] || \
+   [ ! "${argFilterPolicy}" ];then
+    usage
+fi
+
+registry=https://registry.suse.com
+profile=${argAWSProfile}
+push_registry=${argAWSECR}
+filter=${argFilterPolicy}
+
+# Get credentials
+push_creds=$(
+    aws ecr --profile "${profile}" get-login-password
+)
+
+# Create repos on the remote ECR
+poetry run cgyle \
+    --updatecache "${registry}" --from "${registry}" \
+    --filter-policy "${filter}" \
+2>&1 | grep -v INFO:Proxy: | cut -f2- -d- | while read -r repo; do
+    echo "${repo}"
+    if [ ! "${argDryRun}" ];then
+        aws ecr \
+            --profile "${profile}" describe-repositories \
+            --repository-names "${repo}" &> /dev/null || \
+        aws ecr \
+            --profile "${profile}" create-repository \
+            --repository-name "${repo}" \
+            --image-tag-mutability MUTABLE
+    fi
+done
+
+# Push images to repos on the remote ECR
+if [ ! "${argDryRun}" ];then
+    poetry run cgyle \
+        --updatecache "${registry}" --from "${registry}" \
+        --push-oci "${push_registry}" \
+        --push-oci-creds=AWS:"${push_creds}" \
+        --filter-policy "${filter}" \
+        --remove-signatures \
+        --apply
+fi

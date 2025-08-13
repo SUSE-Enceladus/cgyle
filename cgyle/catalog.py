@@ -28,6 +28,7 @@ from typing import (
 from cgyle.credentials import Credentials
 from cgyle.response import Response
 from cgyle.exceptions import (
+    CgyleError,
     CgyleCatalogError,
     CgyleCommandError,
     CgylePodmanError,
@@ -141,17 +142,22 @@ class Catalog:
         if use_archs:
             skip_archs = self.archs
             skip_archs = list(filter(lambda i: i not in use_archs, skip_archs))
-        with open(policy_file) as policy:
-            policy_dict = yaml.safe_load(policy)
-            for category in policy_dict:
-                if category not in skip_sections:
-                    for pattern in policy_dict.get(category):
-                        if not next(
-                            (arch for arch in skip_archs if arch in pattern), None
-                        ):
-                            pattern = re.sub('(?<!\*)\*(?!\*)', '[^/]*', pattern)
-                            pattern = re.sub('\*\*', '.*', pattern)
-                            result.append(f'^{pattern}$')
+        try:
+            with open(policy_file) as policy:
+                policy_dict = yaml.safe_load(policy)
+                for category in policy_dict:
+                    if category not in skip_sections:
+                        for pattern in policy_dict.get(category):
+                            if not next(
+                                (arch for arch in skip_archs if arch in pattern), None
+                            ):
+                                pattern = re.sub('(?<!\*)\*(?!\*)', '[^/]*', pattern)
+                                pattern = re.sub('\*\*', '.*', pattern)
+                                result.append(f'^{pattern}$')
+        except Exception as issue:
+            raise CgyleError(
+                f'Failed to open {policy_file}: {issue}'
+            )
         return result
 
     @staticmethod

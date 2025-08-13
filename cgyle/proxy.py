@@ -133,13 +133,16 @@ class DistributionProxy:
         return result_tag_list
 
     def update_cache(
-        self, from_registry: str, tls_verify: bool = True, store_oci: str = '',
-        proxy_creds: str = '', use_archs: List[str] = []
+        self, from_registry: str, tls_verify: bool = True,
+        store_oci: str = '', push_oci: str = '', push_oci_creds: str = '',
+        proxy_creds: str = '', use_archs: List[str] = [],
+        remove_signatures: bool = False
     ) -> None:
         """
         Trigger a cache update of the container
         """
         username, password = Credentials.read(proxy_creds)
+        push_username, push_password = Credentials.read(push_oci_creds)
         server = self.server
         Path(self.log_path).mkdir(parents=True, exist_ok=True)
         if store_oci:
@@ -182,6 +185,13 @@ class DistributionProxy:
                         log_name = '{}/{}-{}-{}.log'.format(
                             store_oci, self.container, tagname, arch
                         )
+                    elif push_oci:
+                        archive_name = '{}/{}'.format(
+                            push_oci, self.container
+                        )
+                        log_name = '{}/{}-{}-{}.log'.format(
+                            self.log_path, self.container, tagname, arch
+                        )
                     else:
                         archive_name = '/dev/null'
                         log_name = '{}/{}-{}-{}.log'.format(
@@ -204,14 +214,29 @@ class DistributionProxy:
                         '--image-parallel-copies', '5',
                         f'--src-tls-verify={format(tls_verify).lower()}'
                     ]
+                    if remove_signatures:
+                        call_args += [
+                            '--remove-signatures'
+                        ]
                     if username and password:
                         call_args += [
                             '--src-creds', f'{username}:{password}'
                         ]
+                    if push_username and push_password:
+                        call_args += [
+                            '--dest-creds', f'{push_username}:{push_password}'
+                        ]
                     call_args += [
-                        f'docker://{server}/{self.container}:{tagname}',
-                        f'oci-archive:{archive_name}:{tagname}'
+                        f'docker://{server}/{self.container}:{tagname}'
                     ]
+                    if push_oci:
+                        call_args += [
+                            f'docker://{archive_name}:{tagname}'
+                        ]
+                    else:
+                        call_args += [
+                            f'oci-archive:{archive_name}:{tagname}'
+                        ]
                     with open(log_name, 'a') as clog:
                         skopeo = subprocess.Popen(
                             call_args, stdout=clog, stderr=clog

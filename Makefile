@@ -13,6 +13,9 @@ setup:
 	poetry install --all-extras
 
 check: setup
+	# shell code checks
+	bash -c 'shellcheck tools/suse2ecr -s bash'
+	# python flake tests
 	poetry run flake8 --statistics -j auto --count cgyle
 	poetry run flake8 --statistics -j auto --count test/unit
 

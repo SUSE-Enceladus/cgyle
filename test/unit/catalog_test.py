@@ -4,6 +4,7 @@ from unittest.mock import (
 from pytest import raises
 from cgyle.catalog import Catalog
 from cgyle.exceptions import (
+    CgyleError,
     CgyleCatalogError,
     CgylePodmanError,
     CgyleCommandError,
@@ -128,3 +129,9 @@ class TestCatalog:
             '^foo/[^/]*/x86_64/bar/.*$',
             '^foo/s390x/bar$'
         ]
+
+    def test_translate_policy_open_failed(self):
+        with patch('builtins.open', create=True) as mock_open:
+            mock_open.side_effect = Exception
+            with raises(CgyleError):
+                self.catalog.translate_policy('bogus', use_archs=['x86_64'])

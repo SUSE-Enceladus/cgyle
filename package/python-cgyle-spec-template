@@ -92,6 +92,8 @@ sed -e 's/docopt-ng.*/docopt = ">=0.6.2"/' -i pyproject.toml
 install -d -m 755 %{buildroot}/usr/sbin
 install -m 755 tools/cgyle-pubcloud-infra-cleanup \
     %{buildroot}/usr/sbin
+install -m 755 tools/suse2ecr \
+    %{buildroot}/usr/sbin
 install -d -m 755 %{buildroot}/usr/lib/systemd/system
 install -m 644 systemd/registry-suse-com.service \
     %{buildroot}/usr/lib/systemd/system/registry-suse-com.service
@@ -102,6 +104,7 @@ install -m 644 systemd/registry-suse-com.timer \
 %{python3_sitelib}/cgyle*
 %{_bindir}/cgyle
 %{_sbindir}/cgyle-pubcloud-infra-cleanup
+%{_sbindir}/suse2ecr
 %config %{_usr}/lib/systemd/system/registry-suse-com.timer
 %config %{_usr}/lib/systemd/system/registry-suse-com.service
 

@@ -1,0 +1,4 @@
+---
+free:
+- opensuse/leap**/images/**/6.1/**
+- suse/**/16.0/**
