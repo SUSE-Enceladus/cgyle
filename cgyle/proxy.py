@@ -255,6 +255,18 @@ class DistributionProxy:
                                     self.pid, log_name
                                 )
                             )
+                            # something went wrong with this container tag.
+                            # Rewrite the tag list and drop this tag from the list
+                            # such that it gets taken into account for the next
+                            # run of cgyle
+                            current_tag_list = []
+                            if os.path.exists(tag_log_name):
+                                with open(tag_log_name) as taglog:
+                                    current_tag_list = [tag.rstrip() for tag in taglog]
+                                with open(tag_log_name, 'w') as taglog:
+                                    for tag in current_tag_list:
+                                        if tag != tagname:
+                                            taglog.write(f'{tag}{os.linesep}')
                         else:
                             os.unlink(log_name)
                         logging.info(f'[{self.pid}]: [Done]')

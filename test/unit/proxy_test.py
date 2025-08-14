@@ -162,19 +162,42 @@ class TestDistributionProxy:
     @patch('os.unlink')
     @patch('cgyle.proxy.Path')
     @patch('cgyle.proxy.DistributionProxy')
+    @patch('os.path.exists')
     def test_update_cache_null_output(
-        self, mock_DistributionProxy, mock_Path, mock_os_unlink, mock_Popen
+        self, mock_os_path_exists, mock_DistributionProxy,
+        mock_Path, mock_os_unlink, mock_Popen
     ):
+        mock_os_path_exists.return_value = True
         proxy = Mock()
         proxy.get_tags.return_value = ['latest']
         mock_DistributionProxy.return_value = proxy
         skopeo = Mock()
         skopeo.returncode = 1
+        skopeo.pid = 42
         mock_Popen.return_value = skopeo
+
         with patch('builtins.open', create=True) as mock_open:
-            mock_open.return_value = MagicMock(spec=io.IOBase)
-            file_handle = mock_open.return_value.__enter__.return_value
+            mock_open_log = MagicMock(spec=io.IOBase)
+            mock_open_tags_write = MagicMock(spec=io.IOBase)
+
+            def open_file(filename, mode=None):
+                if filename == '/var/log/cgyle/container-latest-all.log':
+                    return mock_open_log.return_value
+                elif filename == '/var/log/cgyle/container-all.tags' and not mode:
+                    return io.StringIO('new_tag1\nnew_tag2\n')
+                elif filename == '/var/log/cgyle/container-all.tags' and mode == 'w':
+                    return mock_open_tags_write.return_value
+
+            mock_open.side_effect = open_file
+
+            file_handle_log = \
+                mock_open_log.return_value.__enter__.return_value
+
+            file_handle_tags_write = \
+                mock_open_tags_write.return_value.__enter__.return_value
+
             self.proxy.update_cache(from_registry='some_registry')
+
             mock_Popen.assert_called_once_with(
                 [
                     'skopeo', 'copy', '--all',
@@ -184,9 +207,14 @@ class TestDistributionProxy:
                     '--src-tls-verify=true',
                     'docker://server/container:latest',
                     'oci-archive:/dev/null:latest'
-                ], stdout=file_handle, stderr=file_handle
+                ], stdout=file_handle_log, stderr=file_handle_log
             )
             skopeo.communicate.assert_called_once_with()
+            assert '[E] - for details see:' in self._caplog.text
+            assert file_handle_tags_write.write.call_args_list == [
+                call('new_tag1\n'),
+                call('new_tag2\n')
+            ]
 
     def test_get_pid(self):
         assert self.proxy.get_pid() == '0'
