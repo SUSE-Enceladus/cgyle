@@ -74,7 +74,7 @@ push_creds=$(
 )
 
 # Create repos on the remote ECR
-poetry run cgyle \
+cgyle \
     --updatecache "${registry}" --from "${registry}" \
     --filter-policy "${filter}" \
 2>&1 | grep -v INFO:Proxy: | cut -f2- -d- | while read -r repo; do
@@ -92,7 +92,7 @@ done
 
 # Push images to repos on the remote ECR
 if [ ! "${argDryRun}" ];then
-    poetry run cgyle \
+    cgyle \
         --updatecache "${registry}" --from "${registry}" \
         --push-oci "${push_registry}" \
         --push-oci-creds=AWS:"${push_creds}" \
