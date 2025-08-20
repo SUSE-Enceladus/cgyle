@@ -4,7 +4,9 @@
 set -e
 
 function usage {
-    echo "suse2ecr --aws-profile <name> --aws-ecr <url> --filter-policy <file>"
+    echo "suse2ecr --aws-ecr <url> --filter-policy <file>"
+    echo "  [--aws-profile <name>]"
+    echo "     aws config profile name"
     echo "  [--dry-run]"
     echo "     apply filter policy only and print list of matches"
     exit 1
@@ -57,8 +59,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-if [ ! "${argAWSProfile}" ] || \
-   [ ! "${argAWSECR}" ] || \
+if [ ! "${argAWSECR}" ] || \
    [ ! "${argFilterPolicy}" ];then
     usage
 fi
@@ -67,10 +68,15 @@ registry=https://registry.suse.com
 profile=${argAWSProfile}
 push_registry=${argAWSECR}
 filter=${argFilterPolicy}
+if [ -n "${profile}" ];then
+    aws_ecr="aws ecr --profile ${profile}"
+else
+    aws_ecr="aws ecr"
+fi
 
 # Get credentials
 push_creds=$(
-    aws ecr --profile "${profile}" get-login-password
+    ${aws_ecr} get-login-password
 )
 
 # Create repos on the remote ECR
@@ -80,11 +86,9 @@ cgyle \
 2>&1 | grep -v INFO:Proxy: | cut -f2- -d- | while read -r repo; do
     echo "${repo}"
     if [ ! "${argDryRun}" ];then
-        aws ecr \
-            --profile "${profile}" describe-repositories \
+        ${aws_ecr} describe-repositories \
             --repository-names "${repo}" &> /dev/null || \
-        aws ecr \
-            --profile "${profile}" create-repository \
+        ${aws_ecr} create-repository \
             --repository-name "${repo}" \
             --image-tag-mutability MUTABLE
     fi
