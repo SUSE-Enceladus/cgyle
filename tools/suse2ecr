@@ -102,8 +102,7 @@ cgyle \
         ${aws_ecr} describe-repositories \
             --repository-names "${repo}" &> /dev/null || \
         ${aws_ecr} create-repository \
-            --repository-name "${repo}" \
-            --image-tag-mutability MUTABLE
+            --repository-name "${repo}"
     fi
 done
 
