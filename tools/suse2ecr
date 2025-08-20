@@ -5,6 +5,8 @@ set -e
 
 function usage {
     echo "suse2ecr --aws-ecr <url> --filter-policy <file>"
+    echo "  [--public]"
+    echo "     push to public ECR"
     echo "  [--aws-profile <name>]"
     echo "     aws config profile name"
     echo "  [--dry-run]"
@@ -17,6 +19,7 @@ ARGUMENT_LIST=(
     "aws-ecr:"
     "filter-policy:"
     "dry-run"
+    "public"
 )
 
 # read arguments
@@ -53,6 +56,11 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
 
+        --public)
+            argPublic=1
+            shift
+            ;;
+
         *)
             break
             ;;
@@ -68,10 +76,15 @@ registry=https://registry.suse.com
 profile=${argAWSProfile}
 push_registry=${argAWSECR}
 filter=${argFilterPolicy}
+ecr="ecr"
+if [ "${argPublic}" ];then
+    ecr="ecr-public"
+fi
+
 if [ -n "${profile}" ];then
-    aws_ecr="aws ecr --profile ${profile}"
+    aws_ecr="aws ${ecr} --profile ${profile}"
 else
-    aws_ecr="aws ecr"
+    aws_ecr="aws ${ecr}"
 fi
 
 # Get credentials
