@@ -401,7 +401,9 @@ class TestDistributionProxy:
         first.communicate.return_value = ['', '']
         second = Mock()
         second.returncode = 0
-        second.communicate.return_value = [b'tag1\ntag2', b'']
+        second.communicate.return_value = [
+            b'tag1\ntag2\nsome.sig\nsome.att', b''
+        ]
         skopeos = [
             second, first
         ]
@@ -412,8 +414,8 @@ class TestDistributionProxy:
         mock_Popen.side_effect = calls
         with patch('builtins.open', create=True):
             assert self.proxy.get_tags(
-                True, 'user:pass', 'amd64', 'some-log-file'
-            ) == ['tag1', 'tag2']
+                True, 'user:pass', 'amd64', 'some-log-file', True, True
+            ) == ['tag1', 'tag2', 'some.sig', 'some.att']
 
     @patch('cgyle.proxy.subprocess.Popen')
     @patch('os.unlink')

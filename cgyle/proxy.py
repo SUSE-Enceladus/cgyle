@@ -56,7 +56,9 @@ class DistributionProxy:
 
     def get_tags(
         self, tls_verify: bool = True, proxy_creds: str = '',
-        arch: str = '', tag_log_name: str = ''
+        arch: str = '', tag_log_name: str = '',
+        with_signatures: bool = False,
+        with_attributes: bool = False
     ) -> List[str]:
         username, password = Credentials.read(proxy_creds)
         call_args = [
@@ -112,18 +114,15 @@ class DistributionProxy:
             )
         result_tag_list = []
         for tag in tag_list:
-            # signed images contains .sig/.att tag names which references
-            # a specific SHA-256 digest of the image that got signed.
-            # We could take this information to verify the image prior
-            # pulling it but I believe there is enough trust established
-            # with the authentication against the origin registry server.
-            # From a mirror perspective we want to mirror the tag names
-            # and not the digests because users can do something with
-            # names but nothing with digests. In addition the setup of
-            # the origin registry server maintains the tag names to be
-            # immutable together with the signing. Thus we ignore
-            # repo tags ending with .sig/.att
-            if not tag.endswith('.sig') and not tag.endswith('.att'):
+            if tag.endswith('.sig') and with_signatures:
+                # Add signature tag for signature verification. Only
+                # makes sense if signed containers are allowed on
+                # the target registry
+                result_tag_list.append(tag)
+            elif tag.endswith('.att') and with_attributes:
+                # Add attribute tag for custom attributes, e.g sboms
+                result_tag_list.append(tag)
+            else:
                 result_tag_list.append(tag)
         if tag_log_name:
             with open(tag_log_name, 'w') as taglog:
@@ -136,7 +135,9 @@ class DistributionProxy:
         self, from_registry: str, tls_verify: bool = True,
         store_oci: str = '', push_oci: str = '', push_oci_creds: str = '',
         proxy_creds: str = '', use_archs: List[str] = [],
-        remove_signatures: bool = False
+        remove_signatures: bool = False,
+        with_signing_tags: bool = False,
+        with_attribute_tags: bool = False
     ) -> None:
         """
         Trigger a cache update of the container
@@ -173,7 +174,10 @@ class DistributionProxy:
                         prior_tag_list = [tag.rstrip() for tag in taglog]
                 tag_list = DistributionProxy(
                     from_registry, self.container
-                ).get_tags(tls_verify, proxy_creds, arch, tag_log_name)
+                ).get_tags(
+                    tls_verify, proxy_creds, arch, tag_log_name,
+                    with_signing_tags, with_attribute_tags
+                )
                 tag_list = \
                     [tag for tag in tag_list if tag not in prior_tag_list]
                 for tagname in tag_list:

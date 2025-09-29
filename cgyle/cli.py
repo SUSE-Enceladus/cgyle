@@ -29,6 +29,8 @@ usage: cgyle -h | --help
            [--tls-verify-registry=<BOOL>]
            [--max-requests=<number>]
            [--remove-signatures]
+           [--with-signing-tags]
+           [--with-attribute-tags]
        cgyle --list-archs
 
 options:
@@ -81,6 +83,12 @@ options:
     --remove-signatures
         Do not copy signatures. Necessary when copying a signed image
         to a destination which does not support signatures
+
+    --with-signing-tags
+        Do not skip tags ending with .sig
+
+    --with-attribute-tags
+        Do not skip tags ending with .att
 
     --tls-verify-proxy=BOOL
         Contact given proxy location without TLS [default: True]
@@ -145,6 +153,8 @@ class Cli:
         self.push_oci = self.arguments['--push-oci'] or ''
         self.tls_push_oci_creds = self.arguments['--push-oci-creds'] or ''
         self.remove_signatures = bool(self.arguments['--remove-signatures'])
+        self.with_signing_tags = bool(self.arguments['--with-signing-tags'])
+        self.with_attribute_tags = bool(self.arguments['--with-attribute-tags'])
         self.catalog: List[str] = []
 
         self.local_distribution_cache = ''
@@ -202,7 +212,9 @@ class Cli:
                                 self.tls_push_oci_creds,
                                 self.tls_proxy_creds,
                                 self.use_archs,
-                                self.remove_signatures
+                                self.remove_signatures,
+                                self.with_signing_tags,
+                                self.with_attribute_tags
                             )
                         )
 
