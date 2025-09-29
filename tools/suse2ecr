@@ -114,5 +114,7 @@ if [ ! "${argDryRun}" ];then
         --push-oci-creds=AWS:"${push_creds}" \
         --filter-policy "${filter}" \
         --remove-signatures \
+        --with-signing-tags \
+        --with-attribute-tags \
         --apply
 fi
