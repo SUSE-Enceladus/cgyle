@@ -1,4 +1,3 @@
 ---
 free:
-- bci/bci-base
-- bci/bci-minimal
+- suse/git

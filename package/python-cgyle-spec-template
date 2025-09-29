@@ -95,6 +95,8 @@ install -m 755 tools/cgyle-pubcloud-infra-cleanup \
     %{buildroot}/usr/sbin
 install -m 644 tools/suse2ecr_policy.yml \
     %{buildroot}/etc
+install -m 644 tools/bci2ecr_policy.yml \
+    %{buildroot}/etc
 install -m 755 tools/suse2ecr \
     %{buildroot}/usr/sbin
 install -d -m 755 %{buildroot}/usr/lib/systemd/system
@@ -111,5 +113,6 @@ install -m 644 systemd/registry-suse-com.timer \
 %config %{_usr}/lib/systemd/system/registry-suse-com.timer
 %config %{_usr}/lib/systemd/system/registry-suse-com.service
 %config /etc/suse2ecr_policy.yml
+%config /etc/bci2ecr_policy.yml
 
 %changelog
