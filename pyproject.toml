@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cgyle"
-version = "1.2.5"
+version = "1.2.6"
 description = "cgyle - container preload"
 license = "GPL-3.0-or-later"
 readme = "README.rst"
@@ -74,5 +74,5 @@ flake8 = ">=4.0.0"
 bumpversion = "*"
 
 [build-system]
-requires = ["poetry-core>=1.2.5"]
+requires = ["poetry-core>=1.2.6"]
 build-backend = "poetry.core.masonry.api"
