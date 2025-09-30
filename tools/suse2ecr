@@ -113,5 +113,6 @@ if [ ! "${argDryRun}" ];then
         --push-oci "${push_registry}" \
         --push-oci-creds=AWS:"${push_creds}" \
         --filter-policy "${filter}" \
+        --with-attestation \
         --apply
 fi
