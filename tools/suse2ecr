@@ -97,6 +97,15 @@ cgyle \
     --updatecache "${registry}" --from "${registry}" \
     --filter-policy "${filter}" \
 2>&1 | grep -v INFO:Proxy: | cut -f2- -d- | while read -r repo; do
+    # we searched for containers in the given filter-policy.
+    # The result is a path. The first element of that path is
+    # the custom alias name of the ECR registry in AWS. The
+    # aws ecr|ecr-public command constructs the repositoryUri
+    # automatically from the used account which already includes
+    # that custom alias name. It is therefore required that we
+    # skip the first path element from the search result
+    repo=$(echo "${repo}" | cut -f2- -d/)
+
     echo "${repo}"
     if [ ! "${argDryRun}" ];then
         ${aws_ecr} describe-repositories \
