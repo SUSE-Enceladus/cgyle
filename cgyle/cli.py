@@ -25,6 +25,7 @@ usage: cgyle -h | --help
            [--registry-creds=<user:pwd>]
            [--proxy-creds=<user:pwd>]
            [--store-oci=<dir>|--push-oci=<repo> --push-oci-creds=<user:pwd>]
+           [--push-ecr-alias=<name>]
            [--tls-verify-proxy=<BOOL>]
            [--tls-verify-registry=<BOOL>]
            [--max-requests=<number>]
@@ -78,6 +79,10 @@ options:
 
     --push-oci-creds=<user:pwd>
         Contact given push-oci registry with the provided credentials
+
+    --push-ecr-alias=<name>
+        Replace first target path element in a container push with
+        the provided alias name.
 
     --remove-signatures
         Do not copy signatures. Necessary when copying a signed image
@@ -147,6 +152,7 @@ class Cli:
         self.from_registry = self.arguments['--from']
         self.store_oci = self.arguments['--store-oci'] or ''
         self.push_oci = self.arguments['--push-oci'] or ''
+        self.ecr_alias = self.arguments['--push-ecr-alias'] or ''
         self.tls_push_oci_creds = self.arguments['--push-oci-creds'] or ''
         self.remove_signatures = bool(self.arguments['--remove-signatures'])
         self.with_attestation = bool(self.arguments['--with-attestation'])
@@ -208,7 +214,8 @@ class Cli:
                                 self.tls_proxy_creds,
                                 self.use_archs,
                                 self.remove_signatures,
-                                self.with_attestation
+                                self.with_attestation,
+                                self.ecr_alias
                             )
                         )
 

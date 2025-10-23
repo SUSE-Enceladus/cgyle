@@ -9,6 +9,8 @@ function usage {
     echo "     push to public ECR"
     echo "  [--aws-profile <name>]"
     echo "     aws config profile name"
+    echo "  [--alias <name>]"
+    echo "     ECR alias name to use, by default taken from sync path"
     echo "  [--dry-run]"
     echo "     apply filter policy only and print list of matches"
     exit 1
@@ -18,6 +20,7 @@ ARGUMENT_LIST=(
     "aws-profile:"
     "aws-ecr:"
     "filter-policy:"
+    "alias:"
     "dry-run"
     "public"
 )
@@ -51,6 +54,11 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
 
+        --alias)
+            argAlias=$2
+            shift 2
+            ;;
+
         --dry-run)
             argDryRun=1
             shift
@@ -77,8 +85,13 @@ profile=${argAWSProfile}
 push_registry=${argAWSECR}
 filter=${argFilterPolicy}
 ecr="ecr"
+alias=""
 if [ "${argPublic}" ];then
     ecr="ecr-public"
+fi
+
+if [ "${argAlias}" ];then
+    alias="--push-ecr-alias ${argAlias}"
 fi
 
 if [ -n "${profile}" ];then
@@ -117,10 +130,11 @@ done
 
 # Push images to repos on the remote ECR
 if [ ! "${argDryRun}" ];then
+    # shellcheck disable=SC2086
     cgyle \
         --updatecache "${registry}" --from "${registry}" \
         --push-oci "${push_registry}" \
-        --push-oci-creds=AWS:"${push_creds}" \
+        --push-oci-creds=AWS:"${push_creds}" ${alias} \
         --filter-policy "${filter}" \
         --with-attestation \
         --apply

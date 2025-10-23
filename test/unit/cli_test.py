@@ -93,7 +93,7 @@ class TestCli:
             )
             proxy.update_cache.assert_called_once_with(
                 'registry.opensuse.org', False, '', '', '', '', [],
-                False, False
+                False, False, ''
             )
 
     @patch.object(Cli, '_get_catalog')

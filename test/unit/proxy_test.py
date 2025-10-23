@@ -162,6 +162,46 @@ class TestDistributionProxy:
     @patch('os.unlink')
     @patch('cgyle.proxy.Path')
     @patch('cgyle.proxy.DistributionProxy')
+    def test_update_cache_push_to_ECR_custom_alias(
+        self, mock_DistributionProxy, mock_Path, mock_os_unlink, mock_Popen
+    ):
+        proxy = Mock()
+        proxy.get_tags.return_value = ['latest']
+        mock_DistributionProxy.return_value = proxy
+        skopeo = Mock()
+        skopeo.returncode = 0
+        skopeo.communicate.return_value = ('stdout', 'stderr')
+        mock_Popen.return_value = skopeo
+        with patch('builtins.open', create=True) as mock_open:
+            mock_open.return_value = MagicMock(spec=io.IOBase)
+            file_handle = mock_open.return_value.__enter__.return_value
+            self.proxy.update_cache(
+                from_registry='some_registry',
+                push_oci='some.dkr.ecr.eu-central-1.amazonaws.com',
+                push_oci_creds='user:pass',
+                use_archs=['x86_64'],
+                remove_signatures=True,
+                ecr_alias='custom_alias'
+            )
+            mock_Popen.assert_called_once_with(
+                [
+                    'skopeo', '--override-arch', 'x86_64',
+                    'copy', '--dest-oci-accept-uncompressed-layers',
+                    '--retry-times', '5',
+                    '--image-parallel-copies', '5',
+                    '--src-tls-verify=true',
+                    '--remove-signatures',
+                    '--dest-creds', 'user:pass',
+                    'docker://server/container:latest',
+                    'docker://some.dkr.ecr.eu-central-1.amazonaws.com/custom_alias:latest'
+                ], stdout=file_handle, stderr=file_handle
+            )
+            assert skopeo.communicate.called
+
+    @patch('cgyle.proxy.subprocess.Popen')
+    @patch('os.unlink')
+    @patch('cgyle.proxy.Path')
+    @patch('cgyle.proxy.DistributionProxy')
     @patch('os.path.exists')
     def test_update_cache_null_output(
         self, mock_os_path_exists, mock_DistributionProxy,

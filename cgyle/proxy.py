@@ -130,7 +130,8 @@ class DistributionProxy:
         store_oci: str = '', push_oci: str = '', push_oci_creds: str = '',
         proxy_creds: str = '', use_archs: List[str] = [],
         remove_signatures: bool = False,
-        with_attestation: bool = False
+        with_attestation: bool = False,
+        ecr_alias: str = ''
     ) -> None:
         """
         Trigger a cache update of the container
@@ -186,6 +187,10 @@ class DistributionProxy:
                         archive_name = '{}/{}'.format(
                             push_oci, self.container
                         )
+                        if ecr_alias:
+                            archive_name = os.sep.join(
+                                [push_oci, ecr_alias] + list(Path(self.container).parts[1:])
+                            )
                         log_name = '{}/{}-{}-{}.log'.format(
                             self.log_path, self.container, tagname, arch
                         )
