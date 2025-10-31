@@ -1,3 +1,4 @@
 ---
 free:
 - bci/bci-minimal
+- bci/bci-base
