@@ -3,8 +3,12 @@
 
 set -e
 
+export catalog_dir=/etc/cgyle2ecrmetadata.d
+export ecr="ecr"
+export alias=""
+
 function usage {
-    echo "suse2ecr --aws-ecr <url> --filter-policy <file>"
+    echo "cgyle2ecr --registry <url> --aws-ecr <url> --filter-policy <file>"
     echo "  [--public]"
     echo "     push to public ECR"
     echo "  [--aws-profile <name>]"
@@ -13,15 +17,29 @@ function usage {
     echo "     ECR alias name to use, by default taken from sync path"
     echo "  [--dry-run]"
     echo "     apply filter policy only and print list of matches"
+    echo "  [--debug]"
+    echo "     enable debug information"
     exit 1
+}
+
+function get_source_catalog {
+    local repo=$1
+    local catalog
+    repo=$(echo "${repo}" | tr / _)
+    catalog="${catalog_dir}/${repo}.json"
+    if [ -f "${catalog}" ];then
+        echo "file://${catalog}"
+    fi
 }
 
 ARGUMENT_LIST=(
     "aws-profile:"
     "aws-ecr:"
+    "registry:"
     "filter-policy:"
     "alias:"
     "dry-run"
+    "debug"
     "public"
 )
 
@@ -49,6 +67,11 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
 
+        --registry)
+            argRegistry=$2
+            shift 2
+            ;;
+
         --filter-policy)
             argFilterPolicy=$2
             shift 2
@@ -61,6 +84,11 @@ while [[ $# -gt 0 ]]; do
 
         --dry-run)
             argDryRun=1
+            shift
+            ;;
+
+        --debug)
+            argDebug=1
             shift
             ;;
 
@@ -80,12 +108,14 @@ if [ ! "${argAWSECR}" ] || \
     usage
 fi
 
-registry=https://registry.suse.com
+if [ "${argDebug}" ];then
+    set -x
+fi
+
+registry=${argRegistry}
 profile=${argAWSProfile}
 push_registry=${argAWSECR}
 filter=${argFilterPolicy}
-ecr="ecr"
-alias=""
 if [ "${argPublic}" ];then
     ecr="ecr-public"
 fi
@@ -121,10 +151,14 @@ cgyle \
 
     echo "${repo}"
     if [ ! "${argDryRun}" ];then
-        ${aws_ecr} describe-repositories \
-            --repository-names "${repo}" &> /dev/null || \
-        ${aws_ecr} create-repository \
-            --repository-name "${repo}"
+        if ! ${aws_ecr} describe-repositories \
+            --repository-names "${repo}" &> /dev/null
+        then
+            ${aws_ecr} create-repository \
+                --repository-name "${repo}"
+            ${aws_ecr} put-repository-catalog-data \
+                --cli-input-json "$(get_source_catalog "${repo}")"
+        fi
     fi
 done
 

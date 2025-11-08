@@ -89,30 +89,35 @@ sed -e 's/docopt-ng.*/docopt = ">=0.6.2"/' -i pyproject.toml
 %install
 %{__python3} -m installer --destdir %{buildroot} %{?is_deb:--no-compile-bytecode} dist/*.whl
 
-install -d -m 755 %{buildroot}/usr/sbin
+install -d -m 755 %{buildroot}/etc/cgyle2ecrmetadata.d
+install -d -m 755 %{buildroot}/%{_sbindir}
 install -d -m 755 %{buildroot}/etc
+
+# This is data used in the suse public cloud infrastructure
+# If this needs to change a conversation with the SRE team
+# is required first !
 install -m 755 tools/cgyle-pubcloud-infra-cleanup \
-    %{buildroot}/usr/sbin
-install -m 644 tools/suse2ecr_policy.yml \
-    %{buildroot}/etc
-install -m 644 tools/bci2ecr_policy.yml \
-    %{buildroot}/etc
-install -m 755 tools/suse2ecr \
-    %{buildroot}/usr/sbin
+    %{buildroot}/%{_sbindir}
 install -d -m 755 %{buildroot}/usr/lib/systemd/system
 install -m 644 systemd/registry-suse-com.service \
     %{buildroot}/usr/lib/systemd/system/registry-suse-com.service
 install -m 644 systemd/registry-suse-com.timer \
     %{buildroot}/usr/lib/systemd/system/registry-suse-com.timer
 
+install -m 755 tools/cgyle2ecr \
+    %{buildroot}/%{_sbindir}
+
 %files -n python%{python3_pkgversion}-cgyle
+%dir %{_sysconfdir}/cgyle2ecrmetadata.d
 %{python3_sitelib}/cgyle*
 %{_bindir}/cgyle
+%{_sbindir}/cgyle2ecr
+
+# This is data used in the suse public cloud infrastructure
+# If this needs to change a conversation with the SRE team
+# is required first !
 %{_sbindir}/cgyle-pubcloud-infra-cleanup
-%{_sbindir}/suse2ecr
 %config %{_usr}/lib/systemd/system/registry-suse-com.timer
 %config %{_usr}/lib/systemd/system/registry-suse-com.service
-%config /etc/suse2ecr_policy.yml
-%config /etc/bci2ecr_policy.yml
 
 %changelog
