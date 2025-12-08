@@ -14,7 +14,7 @@ setup:
 
 check: setup
 	# shell code checks
-	bash -c 'shellcheck tools/suse2ecr -s bash'
+	bash -c 'shellcheck tools/cgyle2ecr -s bash'
 	# python flake tests
 	poetry run flake8 --statistics -j auto --count cgyle
 	poetry run flake8 --statistics -j auto --count test/unit
