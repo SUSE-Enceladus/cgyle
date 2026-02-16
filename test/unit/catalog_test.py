@@ -135,3 +135,19 @@ class TestCatalog:
             mock_open.side_effect = Exception
             with raises(CgyleError):
                 self.catalog.translate_policy('bogus', use_archs=['x86_64'])
+
+    def test_get_tag_filter(self):
+        assert self.catalog.get_tag_filter(
+            '../data/policy'
+        ) == {
+            'bci/**': '^(?!16.1)'
+        }
+        assert self.catalog.get_tag_filter(
+            '../data/policy.test'
+        ) == {}
+
+    def test_get_tag_filter_open_failed(self):
+        with patch('builtins.open', create=True) as mock_open:
+            mock_open.side_effect = Exception
+            with raises(CgyleError):
+                self.catalog.get_tag_filter('bogus')

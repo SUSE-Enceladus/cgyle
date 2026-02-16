@@ -6,3 +6,6 @@ free:
 - foo/*/bar/**
 - foo/*/x86_64/bar/**
 - foo/s390x/bar
+
+tagfilter:
+  bci/**: ^(?!16.1)

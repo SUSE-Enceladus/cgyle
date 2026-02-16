@@ -133,21 +133,34 @@ class Catalog:
                     )
         return sorted(result)
 
+    def get_tag_filter(self, policy_file: str) -> Dict[str, str]:
+        try:
+            with open(policy_file) as policy_fd:
+                policy = yaml.safe_load(policy_fd)
+                return policy.get('tagfilter', {})
+        except Exception as issue:
+            raise CgyleError(
+                f'Failed to open {policy_file}: {issue}'
+            )
+
     def translate_policy(
         self, policy_file: str,
         skip_sections: List[str] = [], use_archs: List[str] = []
     ) -> List[str]:
+        # By default, skip tagfilter section as it is not
+        # relevant for to policy evaluation of the catalog
+        skip_sections.append('tagfilter')
         result: List[str] = []
         skip_archs = []
         if use_archs:
             skip_archs = self.archs
             skip_archs = list(filter(lambda i: i not in use_archs, skip_archs))
         try:
-            with open(policy_file) as policy:
-                policy_dict = yaml.safe_load(policy)
-                for category in policy_dict:
+            with open(policy_file) as policy_fd:
+                policy = yaml.safe_load(policy_fd)
+                for category in policy:
                     if category not in skip_sections:
-                        for pattern in policy_dict.get(category):
+                        for pattern in policy.get(category):
                             if not next(
                                 (arch for arch in skip_archs if arch in pattern), None
                             ):

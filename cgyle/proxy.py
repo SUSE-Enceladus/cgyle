@@ -16,6 +16,7 @@
 # along with cgyle.  If not, see <http://www.gnu.org/licenses/>
 #
 import os
+import re
 import yaml
 import json
 import time
@@ -55,9 +56,13 @@ class DistributionProxy:
         return '/var/log/cgyle'
 
     def get_tags(
-        self, tls_verify: bool = True, proxy_creds: str = '',
-        arch: str = '', tag_log_name: str = '',
-        with_attestation: bool = False
+        self,
+        tls_verify: bool = True,
+        proxy_creds: str = '',
+        arch: str = '',
+        tag_log_name: str = '',
+        with_attestation: bool = False,
+        filter_expression: str = ''
     ) -> List[str]:
         username, password = Credentials.read(proxy_creds)
         call_args = [
@@ -123,6 +128,9 @@ class DistributionProxy:
                 for tag in result_tag_list:
                     if tag != 'latest':
                         taglog.write(f'{tag}{os.linesep}')
+        if filter_expression:
+            regexp = re.compile(filter_expression)
+            result_tag_list = list(filter(regexp.search, result_tag_list))
         return result_tag_list
 
     def update_cache(
@@ -131,7 +139,8 @@ class DistributionProxy:
         proxy_creds: str = '', use_archs: List[str] = [],
         remove_signatures: bool = False,
         with_attestation: bool = False,
-        ecr_alias: str = ''
+        ecr_alias: str = '',
+        filter_expression: str = ''
     ) -> None:
         """
         Trigger a cache update of the container
@@ -170,7 +179,7 @@ class DistributionProxy:
                     from_registry, self.container
                 ).get_tags(
                     tls_verify, proxy_creds, arch, tag_log_name,
-                    with_attestation
+                    with_attestation, filter_expression
                 )
                 tag_list = \
                     [tag for tag in tag_list if tag not in prior_tag_list]

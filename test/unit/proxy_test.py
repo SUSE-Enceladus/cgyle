@@ -465,6 +465,31 @@ class TestDistributionProxy:
 
     @patch('cgyle.proxy.subprocess.Popen')
     @patch('os.unlink')
+    def test_get_tags_filter_expression(self, mock_os_unlink, mock_Popen):
+        first = Mock()
+        first.returncode = 1
+        first.communicate.return_value = ['', '']
+        second = Mock()
+        second.returncode = 0
+        second.communicate.return_value = [
+            b'16.0\n16.1\n16.1.2\n15.2\n16.0.122', b''
+        ]
+        skopeos = [
+            second, first
+        ]
+
+        def calls(argc, **argv):
+            return skopeos.pop()
+
+        mock_Popen.side_effect = calls
+        with patch('builtins.open', create=True):
+            assert self.proxy.get_tags(
+                True, 'user:pass', 'amd64', 'some-log-file', True,
+                filter_expression='^(?!16.1)'
+            ) == ['16.0', '15.2', '16.0.122']
+
+    @patch('cgyle.proxy.subprocess.Popen')
+    @patch('os.unlink')
     def test_get_tags_podman_search_on_invalid_container_arch(
         self, mock_os_unlink, mock_Popen
     ):
