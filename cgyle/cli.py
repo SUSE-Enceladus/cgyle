@@ -197,9 +197,12 @@ class Cli:
                 if self.dryrun:
                     logging.info(f'Proxy: [{self.cache}]:')
                 for container in self._get_catalog():
+                    tag_filter = self._get_filter_expression(container)
                     count += 1
                     if self.dryrun:
-                        logging.info(f'  ({count}) - {container}')
+                        logging.info(
+                            f'  ({count}) - {container}[{tag_filter or "all"}]'
+                        )
                     else:
                         proxy = DistributionProxy(self.cache, container)
                         stack.push(proxy)
@@ -215,7 +218,8 @@ class Cli:
                                 self.use_archs,
                                 self.remove_signatures,
                                 self.with_attestation,
-                                self.ecr_alias
+                                self.ecr_alias,
+                                tag_filter
                             )
                         )
 
@@ -254,6 +258,15 @@ class Cli:
                                             collect_fd.write(os.linesep)
             except IOError as issue:
                 logging.error(f'Failed to create logfile: {issue}')
+
+    def _get_filter_expression(self, container: str) -> str:
+        filter_expression = ''
+        if self.policy:
+            catalog = Catalog()
+            filter_expression = catalog.get_tag_filter(
+                self.policy
+            ).get(container, '')
+        return filter_expression
 
     def _get_catalog(self) -> List[str]:
         catalog = Catalog()

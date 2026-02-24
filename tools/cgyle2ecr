@@ -138,8 +138,8 @@ push_creds=$(
 # Create repos on the remote ECR
 cgyle \
     --updatecache "${registry}" --from "${registry}" \
-    --filter-policy "${filter}" \
-2>&1 | grep -v INFO:Proxy: | cut -f2- -d- | while read -r repo; do
+    --filter-policy "${filter}" 2>&1 |\
+grep -v INFO:Proxy: | cut -f2- -d- | cut -f1 -d\[ | while read -r repo;do
     # we searched for containers in the given filter-policy.
     # The result is a path. The first element of that path is
     # the custom alias name of the ECR registry in AWS. The
