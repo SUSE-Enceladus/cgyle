@@ -23,7 +23,9 @@ import time
 import psutil
 from pathlib import Path
 from textwrap import dedent
-from tempfile import NamedTemporaryFile
+from tempfile import (
+    NamedTemporaryFile, _TemporaryFileWrapper
+)
 import logging
 import subprocess
 from cgyle.credentials import Credentials
@@ -31,7 +33,9 @@ from cgyle.catalog import Catalog
 from cgyle.exceptions import CgyleCommandError
 from json import JSONDecodeError
 from subprocess import SubprocessError
-from typing import List
+from typing import (
+    List, Optional
+)
 
 
 class DistributionProxy:
@@ -44,7 +48,8 @@ class DistributionProxy:
         self.server = server.replace('http://', '')
         self.server = self.server.replace('https://', '')
         self.container = container
-        self.registry_name = ''
+        self.registry_name = 'registry_proxy'
+        self.registry_config: Optional[_TemporaryFileWrapper[bytes]] = None
         self.shutdown = False
         self.pid = 0
 
@@ -299,6 +304,7 @@ class DistributionProxy:
         username, password = Credentials.read(proxy_creds)
         status = ''
         try:
+            self.delete_local_distribution_instance()
             scheduler_state_file = f'{os.path.abspath(data_dir)}/scheduler-state.json'
             if not self._scheduler_state_ok(scheduler_state_file):
                 status = f'Deleting invalid state file {scheduler_state_file}'
@@ -315,8 +321,6 @@ class DistributionProxy:
                 f'Find local registry data at: {os.path.abspath(data_dir)}'
             )
             Path(data_dir).mkdir(parents=True, exist_ok=True)
-            self.registry_name = \
-                f'{os.path.basename(self.registry_config.name)}'
             cgyle_oci_distribution_check = subprocess.Popen(
                 ['podman', 'image', 'exists', 'registry'],
                 stdout=subprocess.PIPE,
@@ -452,13 +456,16 @@ class DistributionProxy:
             config['proxy']['password'] = password
         return config
 
-    def __exit__(self, exc_type, exc_value, traceback):
-        if self.registry_name:
+    def delete_local_distribution_instance(self):
+        if self.registry_config:
             subprocess.Popen(
                 ['podman', 'rm', '--force', self.registry_name],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE
             ).communicate()
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.delete_local_distribution_instance()
         if exc_type == KeyboardInterrupt:
             # kill current skopeo call if present
             if self.pid > 0 and psutil.pid_exists(self.pid):

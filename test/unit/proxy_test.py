@@ -274,6 +274,10 @@ class TestDistributionProxy:
             Mock(
                 returncode=0,
                 communicate=Mock(return_value=(b'output', b''))
+            ),
+            Mock(
+                returncode=0,
+                communicate=Mock(return_value=(b'output', b''))
             )
         ]
 
@@ -386,12 +390,15 @@ class TestDistributionProxy:
             mock_Path.assert_called_once_with('data_dir')
             assert mock_Popen.call_args_list == [
                 call(
+                    ['podman', 'rm', '--force', 'registry_proxy'], stdout=-1, stderr=-1
+                ),
+                call(
                     ['podman', 'image', 'exists', 'registry'], stdout=-1, stderr=-1
                 ),
                 call(
                     [
                         'podman', 'run', '--detach',
-                        '--name', 'cgyle_local_distXXXX',
+                        '--name', 'registry_proxy',
                         '--rm',
                         '--net', 'host',
                         '-v', 'some_abs_path/:/var/lib/registry/',
@@ -534,7 +541,7 @@ class TestDistributionProxy:
     @patch('cgyle.proxy.subprocess.Popen')
     def test_context_manager_exit_registry_cleanup(self, mock_Popen):
         with DistributionProxy('server', 'container') as proxy:
-            proxy.registry_name = 'some'
+            proxy.registry_config = Mock()
         mock_Popen.assert_called_once_with(
-            ['podman', 'rm', '--force', 'some'], stdout=-1, stderr=-1
+            ['podman', 'rm', '--force', 'registry_proxy'], stdout=-1, stderr=-1
         )
