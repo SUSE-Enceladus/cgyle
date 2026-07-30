@@ -15,12 +15,8 @@
 # You should have received a copy of the GNU General Public License
 # along with cgyle.  If not, see <http://www.gnu.org/licenses/>
 #
-import os
 import re
 import yaml
-import logging
-import time
-import subprocess
 from typing import (
     List, Dict
 )
@@ -30,8 +26,6 @@ from cgyle.response import Response
 from cgyle.exceptions import (
     CgyleError,
     CgyleCatalogError,
-    CgyleCommandError,
-    CgylePodmanError,
     CgyleFilterExpressionError
 )
 
@@ -42,80 +36,60 @@ class Catalog:
     """
     def __init__(self) -> None:
         self.archs = Catalog.get_arch_list()
-        self.response = Response()
 
-    def get_catalog(self, server: str) -> List[str]:
+    def get_catalog(self, server: str, creds: str = '') -> List[str]:
         """
         Read registry catalog from a v2 registry format
         """
-        catalog_dict: Dict[str, List[str]] = self.response.get(
-            f'{server}/v2/_catalog'
-        )
-        try:
-            return catalog_dict['repositories']
-        except KeyError:
-            raise CgyleCatalogError(
-                f'Unexpected catalog response: {catalog_dict}'
-            )
-
-    def get_catalog_podman_search(
-        self, server: str, tls_verify: bool = True, creds: str = ''
-    ) -> List[str]:
-        """
-        Read registry catalog using podman search
-        """
+        remote = Response()
         username, password = Credentials.read(creds)
-        result: List[str] = []
-        server = server.replace('http://', '')
-        server = server.replace('https://', '')
-        call_args = [
-            'podman', 'search',
-            f'--tls-verify={format(tls_verify).lower()}',
-            '--limit', '2147483647'
-        ]
-        if username and password:
-            call_args += [
-                '--creds', f'{username}:{password}'
-            ]
-        call_args.append(
-            f'{server}:/'
+        target = f'{server}/v2/_catalog'
+        challenge = remote.get_auth_challenge(target)
+        token = ''
+        headers = {}
+        if challenge:
+            realm, service = remote.extract_bearer_parameters(challenge)
+            if not realm or not service:
+                raise CgyleCatalogError(
+                    f'Failed to parse authentication challenge: {challenge}'
+                )
+            token_data = remote.fetch(
+                realm,
+                parameters={
+                    'service': service,
+                    'scope': 'registry:catalog:*'
+                },
+                user=username,
+                password=password
+            )
+            token = \
+                token_data.get('token') or token_data.get('access_token') or ''
+            if not token:
+                raise CgyleCatalogError(
+                    f'Failed to acquire token from {token_data}'
+                )
+        if token:
+            headers = {
+                'Authorization': f'Bearer {token}'
+            }
+        catalog_data = remote.fetch(
+            target, headers=headers
         )
-        retry = 0
-        max_retry = 10
-        catalog_issue = 'unknown'
-        while retry < max_retry:
-            try:
-                self.podman = subprocess.Popen(
-                    call_args,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE
-                )
-                output, error = self.podman.communicate()
-                if error and self.podman.returncode != 0:
-                    message = '[{}]: podman search failed with: {}'.format(
-                        retry + 1, error.decode().strip()
-                    )
-                    logging.info(message)
-                    raise CgylePodmanError(message)
-                if output:
-                    result = []
-                    for line in output.decode().split(os.linesep):
-                        server, slash, container = line.partition(os.sep)
-                        container = container.strip()
-                        if container:
-                            result.append(container)
-                break
-            except CgylePodmanError as issue:
-                catalog_issue = format(issue)
-                time.sleep(2)
-                retry += 1
-            except Exception as issue:
-                raise CgyleCommandError(
-                    f'Failed to call podman search: {issue}'
-                )
-        if retry >= max_retry:
-            raise CgylePodmanError(catalog_issue)
-        return result
+        if errors := catalog_data.get('errors'):
+            raise CgyleCatalogError(
+                f'Failed to acquire catalog {errors}'
+            )
+        result = catalog_data.get('repositories')
+        link = catalog_data.get('Link')
+        while link:
+            link = link.replace('<', '').replace('>', '')
+            target = f'{server}{link}'
+            data = remote.fetch(
+                target, headers=headers
+            )
+            result += catalog_data.get('repositories', [])
+            link = data.get('Link')
+        return sorted(result) if result else []
 
     def apply_filter(
         self, catalog: List[str], rules: List[str]

@@ -1,12 +1,8 @@
-from unittest.mock import (
-    patch, Mock
-)
+import requests
+from unittest.mock import patch
 from pytest import raises
 from cgyle.response import Response
-from cgyle.exceptions import (
-    CgyleJsonError,
-    CgyleRequestError
-)
+from cgyle.exceptions import CgyleRequestError
 
 
 class TestResponse:
@@ -16,25 +12,44 @@ class TestResponse:
     def setup_method(self, cls):
         self.setup()
 
-    @patch('cgyle.response.requests')
-    def test_get(self, mock_requests):
-        response = Mock()
-        response.content = b'{"repositories": ["name"]}'
-        mock_requests.request.return_value = response
-        assert self.response.get(
-            'https://registry.opensuse.org/v2/_catalog'
-        ) == {'repositories': ['name']}
+    @patch.object(Response, 'fetch')
+    def test_get_auth_challenge(self, mock_fetch):
+        mock_fetch.return_value = {
+            'www-authenticate': 'Bearer realm="some"'
+        }
+        assert self.response.get_auth_challenge('some') == 'Bearer realm="some"'
 
-    @patch('cgyle.response.requests')
-    def test_get_raises_on_json_import(self, mock_requests):
-        response = Mock()
-        response.content = b'foo'
-        mock_requests.request.return_value = response
-        with raises(CgyleJsonError):
-            self.response.get('location')
+    def test_extract_bearer_parameters(self):
+        challenge = 'Bearer realm="some",service="some"'
+        assert self.response.extract_bearer_parameters(
+            challenge
+        ) == ('some', 'some')
 
-    @patch('cgyle.response.requests')
-    def test_get_raises_on_request(self, mock_requests):
-        mock_requests.request.side_effect = Exception
+    @patch('cgyle.response.requests.get')
+    def test_fetch(self, mock_requests_get):
+        mock_requests_get.return_value.content = '{"content": "value"}'
+        mock_requests_get.return_value.headers = {'header': 'some'}
+        self.response.fetch(
+            'some_url', user='user', password='pass'
+        )
+        mock_requests_get.assert_called_with(
+            'some_url', headers={}, auth=('user', 'pass'), timeout=300
+        )
+        assert self.response.fetch(
+            'some_url', parameters={'some': 'value'}
+        ) == {
+            'content': 'value',
+            'header': 'some'
+        }
+
+    @patch('cgyle.response.requests.get')
+    def test_fetch_raises_on_request_handling(self, mock_requests_get):
+        mock_requests_get.side_effect = Exception
         with raises(CgyleRequestError):
-            self.response.get('location')
+            self.response.fetch('some_url')
+
+    @patch('cgyle.response.requests.get')
+    def test_fetch_raises_on_timeout(self, mock_requests_get):
+        mock_requests_get.side_effect = requests.exceptions.Timeout
+        with raises(CgyleRequestError):
+            self.response.fetch('some_url')

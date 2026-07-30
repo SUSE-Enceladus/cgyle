@@ -15,14 +15,16 @@
 # You should have received a copy of the GNU General Public License
 # along with cgyle.  If not, see <http://www.gnu.org/licenses/>
 #
+import re
 import json
 import requests
 import requests.packages.urllib3
-
-from cgyle.exceptions import (
-    CgyleJsonError,
-    CgyleRequestError
+from urllib.parse import urlencode
+from typing import (
+    Optional, Any
 )
+
+from cgyle.exceptions import CgyleRequestError
 
 
 class Response:
@@ -32,23 +34,56 @@ class Response:
     def __init__(self) -> None:
         requests.packages.urllib3.disable_warnings()
 
-    def get(self, uri: str) -> dict:
+    def get_auth_challenge(self, target: str) -> Optional[str]:
         """
-        Send GET request and expect JSON
+        Retrieve Www-Authenticate information from
+        request target header
+        """
+        return self.fetch(target).get('www-authenticate')
+
+    def extract_bearer_parameters(
+        self, challenge: str
+    ) -> tuple[Optional[str], Optional[str]]:
+        realm = re.search(r'realm="([^"]+)"', challenge, re.IGNORECASE)
+        service = re.search(r'service="([^"]+)"', challenge, re.IGNORECASE)
+        return (
+            realm.group(1) if realm else None,
+            service.group(1) if service else None,
+        )
+
+    def fetch(
+        self,
+        target: str,
+        parameters: Optional[dict[str, str]] = None,
+        headers: Optional[dict[str, str]] = None,
+        user: str = '',
+        password: str = '',
+        timeout: int = 300
+    ) -> dict[str, Any]:
+        """
+        Fetch request content and header, default timeout set to 300sec
         """
         try:
-            response = requests.request(
-                'GET', uri, stream=True, data=None, headers=None
+            url = target
+            if parameters:
+                url = f'{target}?{urlencode(parameters)}'
+            if user:
+                response = requests.get(
+                    url,
+                    headers=headers or {},
+                    auth=(user, password),
+                    timeout=timeout
+                )
+            else:
+                response = requests.get(url, headers=headers or {})
+            result = json.loads(response.content)
+            result.update(response.headers)
+            return result
+        except requests.exceptions.Timeout:
+            raise CgyleRequestError(
+                f'Request to {url} timed out'
             )
         except Exception as issue:
             raise CgyleRequestError(
-                f'Failed to handle request: {issue}'
-            )
-        try:
-            return json.loads(response.content)
-        except Exception:
-            raise CgyleJsonError(
-                'Failed to load response into JSON format: {}'.format(
-                    response.content.decode()
-                )
+                f'Failed to fetch request data: {issue}'
             )

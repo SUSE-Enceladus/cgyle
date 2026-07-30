@@ -120,7 +120,7 @@ from cgyle.catalog import Catalog
 
 logging.basicConfig(
     format='%(levelname)s:%(message)s',
-    level=logging.DEBUG
+    level=logging.INFO
 )
 
 
@@ -161,10 +161,6 @@ class Cli:
         self.local_distribution_cache = ''
         if self.cache and self.cache.startswith('local://distribution'):
             self.local_distribution_cache = self.cache.split(':')[2]
-
-        self.use_podman_search = False
-        if self.tls_registry_creds or self.tls_registry:
-            self.use_podman_search = True
 
         if process:
             if self.list_archs:
@@ -270,13 +266,9 @@ class Cli:
 
     def _get_catalog(self) -> List[str]:
         catalog = Catalog()
-        if self.use_podman_search:
-            result = catalog.get_catalog_podman_search(
-                self.from_registry, self.tls_registry,
-                self.tls_registry_creds
-            )
-        else:
-            result = catalog.get_catalog(self.from_registry)
+        result = catalog.get_catalog(
+            self.from_registry, self.tls_registry_creds
+        )
 
         if self.policy:
             result = catalog.apply_filter(
