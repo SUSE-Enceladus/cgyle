@@ -20,7 +20,7 @@ usage: cgyle -h | --help
        cgyle --updatecache=<proxy> --from=<registry>
            [--apply]
            [--filter=<expression>]
-           [--filter-policy=<policyfile>|(--filter-policy=<policyfile> --skip-policy-section=<name>...)]
+           [--filter-policy=<policyfile>|(--filter-policy=<policyfile> --skip-policy-section=<name>...)|(--filter-policy=<policyfile> --use-policy-section=<name>...)]
            [--arch=<arch>...]
            [--registry-creds=<user:pwd>]
            [--proxy-creds=<user:pwd>]
@@ -55,6 +55,11 @@ options:
     --skip-policy-section=<name>...
         Skip the provided section name from the policyfile.
         This option can be specified multiple times.
+
+    --use-policy-section=<name>...
+        Only use the provided section name from the policyfile.
+        This option can be specified multiple times.
+        Mutually exclusive with --skip-policy-section.
 
     --from=<registry>
         Registry location to read the catalog of containers
@@ -149,6 +154,8 @@ class Cli:
         self.use_archs: List[str] = self.arguments['--arch']
         self.policy_skip_sections: List[str] = \
             self.arguments['--skip-policy-section']
+        self.policy_use_sections: List[str] = \
+            self.arguments['--use-policy-section']
         self.from_registry = self.arguments['--from']
         self.store_oci = self.arguments['--store-oci'] or ''
         self.push_oci = self.arguments['--push-oci'] or ''
@@ -281,7 +288,8 @@ class Cli:
         if self.policy:
             result = catalog.apply_filter(
                 result, catalog.translate_policy(
-                    self.policy, self.policy_skip_sections, self.use_archs
+                    self.policy, self.policy_skip_sections,
+                    self.use_archs, self.policy_use_sections
                 )
             )
 

@@ -53,7 +53,24 @@ class TestCli:
             call(['some-container'], ['.*'])
         ]
         catalog.translate_policy.assert_called_once_with(
-            '../data/policy', [], []
+            '../data/policy', [], [], []
+        )
+
+    @patch('cgyle.cli.Catalog')
+    def test_update_cache_with_use_policy_section(self, mock_Catalog):
+        catalog = Mock()
+        catalog.get_catalog.return_value = ['some-container']
+        catalog.apply_filter.return_value = ['some-container']
+        catalog.translate_policy.return_value = []
+        mock_Catalog.return_value = catalog
+        self.cli.use_podman_search = False
+        self.cli.dryrun = True
+        self.cli.policy = '../data/policy'
+        self.cli.policy_use_sections = ['free']
+        with patch('builtins.open', create=True):
+            self.cli.update_cache()
+        catalog.translate_policy.assert_called_once_with(
+            '../data/policy', [], [], ['free']
         )
 
     @patch.object(Cli, '_get_catalog')
