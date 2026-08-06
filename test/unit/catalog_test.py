@@ -137,6 +137,23 @@ class TestCatalog:
             '^foo/s390x/bar$'
         ]
 
+    def test_translate_policy_use_sections(self):
+        # use_sections restricts to the listed section(s)
+        assert self.catalog.translate_policy(
+            '../data/policy', use_sections=['free']
+        ) == [
+            '^[^/]*$',
+            '^bci/.*$',
+            '^suse/[^/]*$',
+            '^foo/[^/]*/bar/.*$',
+            '^foo/[^/]*/x86_64/bar/.*$',
+            '^foo/s390x/bar$'
+        ]
+        # section not present returns empty list
+        assert self.catalog.translate_policy(
+            '../data/policy', use_sections=['nonexistent']
+        ) == []
+
     def test_translate_policy_open_failed(self):
         with patch('builtins.open', create=True) as mock_open:
             mock_open.side_effect = Exception

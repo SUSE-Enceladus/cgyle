@@ -119,7 +119,8 @@ class Catalog:
 
     def translate_policy(
         self, policy_file: str,
-        skip_sections: List[str] = [], use_archs: List[str] = []
+        skip_sections: List[str] = [], use_archs: List[str] = [],
+        use_sections: List[str] = []
     ) -> List[str]:
         # By default, skip tagfilter section as it is not
         # relevant for to policy evaluation of the catalog
@@ -133,14 +134,17 @@ class Catalog:
             with open(policy_file) as policy_fd:
                 policy = yaml.safe_load(policy_fd)
                 for category in policy:
-                    if category not in skip_sections:
-                        for pattern in policy.get(category):
-                            if not next(
-                                (arch for arch in skip_archs if arch in pattern), None
-                            ):
-                                pattern = re.sub('(?<!\*)\*(?!\*)', '[^/]*', pattern)
-                                pattern = re.sub('\*\*', '.*', pattern)
-                                result.append(f'^{pattern}$')
+                    if category in skip_sections:
+                        continue
+                    if use_sections and category not in use_sections:
+                        continue
+                    for pattern in policy.get(category):
+                        if not next(
+                            (arch for arch in skip_archs if arch in pattern), None
+                        ):
+                            pattern = re.sub('(?<!\*)\*(?!\*)', '[^/]*', pattern)
+                            pattern = re.sub('\*\*', '.*', pattern)
+                            result.append(f'^{pattern}$')
         except Exception as issue:
             raise CgyleError(
                 f'Failed to open {policy_file}: {issue}'
