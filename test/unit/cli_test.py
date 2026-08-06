@@ -42,7 +42,6 @@ class TestCli:
         catalog.apply_filter.return_value = ['some-container']
         catalog.translate_policy.return_value = []
         mock_Catalog.return_value = catalog
-        self.cli.use_podman_search = False
         self.cli.dryrun = True
         self.cli.pattern = '.*'
         self.cli.policy = '../data/policy'
@@ -131,7 +130,6 @@ class TestCli:
             ('/var/log/cgyle/some/outside/catalog', [], ['some.log'])
         ]
         self.cli.dryrun = False
-        self.cli.use_podman_search = False
         self.cli.local_distribution_cache = None
 
         with patch('builtins.open', create=True) as mock_open:
@@ -161,21 +159,8 @@ class TestCli:
         catalog = Mock()
         catalog.get_catalog.return_value = ['some/container']
         mock_Catalog.return_value = catalog
-        self.cli.use_podman_search = False
         self.cli.dryrun = True
         self.cli._get_catalog()
         catalog.get_catalog.assert_called_once_with(
-            'registry.opensuse.org'
-        )
-
-    @patch('cgyle.cli.Catalog')
-    def test_get_catalog_podman_search(self, mock_Catalog):
-        catalog = Mock()
-        catalog.get_catalog_podman_search.return_value = ['some/container']
-        mock_Catalog.return_value = catalog
-        self.cli.use_podman_search = True
-        self.cli.dryrun = True
-        self.cli._get_catalog()
-        catalog.get_catalog_podman_search.assert_called_once_with(
-            'registry.opensuse.org', True, ''
+            'registry.opensuse.org', ''
         )

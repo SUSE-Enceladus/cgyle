@@ -1,13 +1,10 @@
-from unittest.mock import (
-    patch, Mock
-)
+from unittest.mock import patch
 from pytest import raises
 from cgyle.catalog import Catalog
+from cgyle.response import Response
 from cgyle.exceptions import (
     CgyleError,
     CgyleCatalogError,
-    CgylePodmanError,
-    CgyleCommandError,
     CgyleFilterExpressionError
 )
 
@@ -19,56 +16,66 @@ class TestCatalog:
     def setup_method(self, cls):
         self.setup()
 
-    @patch('cgyle.catalog.Response.get')
-    def test_get_catalog(self, mock_Response_get):
-        mock_Response_get.return_value = {'repositories': ['name']}
-        assert self.catalog.get_catalog(
-            'https://registry.opensuse.org'
-        ) == ['name']
+    @patch.object(Response, 'get_auth_challenge')
+    @patch.object(Response, 'extract_bearer_parameters')
+    @patch.object(Response, 'fetch')
+    def test_get_catalog(
+        self,
+        mock_fetch,
+        mock_extract_bearer_parameters,
+        mock_get_auth_challenge
+    ):
+        def fetch(
+            target, parameters=None, headers=None, user='', password=''
+        ):
+            if 'some_link' in target:
+                return {}
+            else:
+                return {
+                    'repositories': ['name'],
+                    'token': 'some',
+                    'Link': 'some_link'
+                }
 
-    @patch('cgyle.catalog.Response.get')
-    def test_get_catalog_raises(self, mock_Response_get):
-        mock_Response_get.return_value = {'errors': ['some']}
+        mock_extract_bearer_parameters.return_value = ('realm', 'service')
+        mock_get_auth_challenge.return_value = 'some'
+        mock_fetch.side_effect = fetch
+        assert self.catalog.get_catalog(
+            'https://registry.opensuse.org', 'user:pass'
+        ) == ['name', 'name']
+
+    @patch.object(Response, 'get_auth_challenge')
+    @patch.object(Response, 'extract_bearer_parameters')
+    @patch.object(Response, 'fetch')
+    def test_get_catalog_raises(
+        self,
+        mock_fetch,
+        mock_extract_bearer_parameters,
+        mock_get_auth_challenge
+    ):
+        mock_get_auth_challenge.return_value = 'some'
+        mock_extract_bearer_parameters.return_value = ('', '')
         with raises(CgyleCatalogError):
             self.catalog.get_catalog(
                 'https://registry.opensuse.org'
             )
-
-    @patch('time.sleep')
-    @patch('cgyle.proxy.subprocess.Popen')
-    def test_get_catalog_podman_search_raises_with_error(self, mock_Popen, mock_time):
-        podman = Mock()
-        podman.communicate.return_value = (b'output', b'error')
-        mock_Popen.return_value = podman
-        with raises(CgylePodmanError):
-            self.catalog.get_catalog_podman_search(
+        mock_extract_bearer_parameters.reset_mock()
+        mock_extract_bearer_parameters.return_value = ('realm', 'service')
+        mock_fetch.return_value = {
+            'token': None
+        }
+        with raises(CgyleCatalogError):
+            self.catalog.get_catalog(
                 'https://registry.opensuse.org'
             )
-
-    @patch('cgyle.proxy.subprocess.Popen')
-    def test_get_catalog_podman_search_raises(self, mock_Popen):
-        mock_Popen.side_effect = Exception
-        with raises(CgyleCommandError):
-            self.catalog.get_catalog_podman_search(
+        mock_get_auth_challenge.return_value = None
+        mock_fetch.return_value = {
+            'errors': 'some'
+        }
+        with raises(CgyleCatalogError):
+            self.catalog.get_catalog(
                 'https://registry.opensuse.org'
             )
-
-    @patch('time.sleep')
-    @patch('cgyle.proxy.subprocess.Popen')
-    def test_get_catalog_podman_search(self, mock_Popen, mock_time):
-        podman = Mock()
-        podman.communicate.return_value = (b'server/A\nserver/B', b'')
-        mock_Popen.return_value = podman
-        assert self.catalog.get_catalog_podman_search(
-            'https://registry.opensuse.org', True, 'user:pwd'
-        ) == ['A', 'B']
-        mock_Popen.assert_called_once_with(
-            [
-                'podman', 'search', '--tls-verify=true',
-                '--limit', '2147483647', '--creds', 'user:pwd',
-                'registry.opensuse.org:/'
-            ], stdout=-1, stderr=-1
-        )
 
     def test_apply_filter_raises(self):
         with raises(CgyleFilterExpressionError):
